@@ -1,0 +1,11 @@
+Name: p3-fPromela
+Version: 0.1
+Cabal-Version:  >= 1.2
+Author: Ahmad Salim Al-Sibahi
+Synopsis: Parser and Transformation tool for fPromela
+Build-Type: Simple
+
+Executable p3-fpromela
+  Build-Depends: base, parsec, uniplate, language-c
+  Main-Is: Main.hs
+  Hs-Source-Dirs: src
