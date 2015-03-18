@@ -12,6 +12,9 @@ import Language.C.Syntax.AST (CExtDecl, CStat, CExpr)
 
 data ParserState = ParserState { declared_types :: [String] }
 
+emptyParserState :: ParserState
+emptyParserState = ParserState []
+
 pName :: Parser ParserState String
 pName = try $ do
   st <- getState
@@ -27,7 +30,7 @@ pUname = do
   return (TUName name)
 
 pSpec :: Parser ParserState Spec
-pSpec = many1 pModule
+pSpec = whiteSpace *> many1 pModule
       <?> "specification"
 
 pModule :: Parser ParserState Module
@@ -72,7 +75,7 @@ pTrace = do
 
 pUtype :: Parser ParserState Module
 pUtype = do
-  reserved "typename"
+  reserved "typedef"
   name <- pName
   decls <- braces pDecls
   modifyState (\st -> st { declared_types = name : declared_types st })
@@ -102,7 +105,8 @@ pType =   (reserved "bit" *> return TBit)
       <|> (reserved "byte" *> return TByte)
       <|> (reserved "short" *> return TShort)
       <|> (reserved "int" *> return TInt)
-      <|> (reserved "mtype" *> return TMType)
+      -- In order to avoid global mtype
+      <|> (try (reserved "mtype" *> notFollowedBy (symbol "{" <|> symbol "=")) *> return TMType)
       <|> (reserved "chan" *> return TChan)
       <|> pUname
       <?> "type"
