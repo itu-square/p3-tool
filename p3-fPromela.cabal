@@ -6,9 +6,10 @@ Synopsis: Parser and Transformation tool for fPromela
 Build-Type: Simple
 
 Executable p3-fpromela
-  Build-Depends: base, parsec, uniplate, language-c
+  Build-Depends: base, parsec, uniplate, language-c, mtl
   Main-Is: Main.hs
   Hs-Source-Dirs: src
   Other-Modules:
     FPromela.Ast
+    FPromela.Lexer
     FPromela.Parser

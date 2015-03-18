@@ -1,5 +1,6 @@
 module FPromela.Lexer where
 
+import Text.Parsec
 import qualified Text.Parsec.Token as Tok
 import Text.Parsec.Language (emptyDef)
 
@@ -33,8 +34,11 @@ lexer = Tok.makeTokenParser promelaDef
 identifier :: Parser st String
 identifier = Tok.identifier lexer
 
-reserved :: Parser st String
+reserved :: String -> Parser st ()
 reserved = Tok.reserved lexer
+
+reservedOp :: String -> Parser st ()
+reservedOp = Tok.reservedOp lexer
 
 charLiteral :: Parser st Char
 charLiteral = Tok.charLiteral lexer
@@ -76,7 +80,7 @@ colon :: Parser st String
 colon = Tok.colon lexer
 
 dot :: Parser st String
-dot = Token.dot lexer
+dot = Tok.dot lexer
 
 semiSep :: Parser st a -> Parser st [a]
 semiSep = Tok.semiSep lexer

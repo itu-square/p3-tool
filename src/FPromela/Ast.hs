@@ -92,7 +92,7 @@ type Sequence = [Step]
   | XR varref [',' varref ] *
   | XS varref [',' varref ] *
  -}
-data Step = SStmt Stmt Stmt
+data Step = SStmt Stmt (Maybe Stmt)
           | SDecl [Decl]
           | SXr [VarRef]
           | SXs [VarRef]
@@ -100,7 +100,7 @@ data Step = SStmt Stmt Stmt
 {-
   ivar    : name [ '[' const ']' ] [ '=' any_expr | '=' ch_init ]
 -}
-data IVar = IVar Name (Maybe Const) (Either AnyExpr ChInit)
+data IVar = IVar Name (Maybe Const) (Maybe (Either AnyExpr ChInit))
 
 {-
   ch_init : '[' const ']' OF '{' typename [ ',' typename ] * '}'
@@ -118,7 +118,7 @@ type Sorted = Bool
   send    : varref '!' send_args    /* normal fifo send */
   | varref '!' '!' send_args  /* sorted send */
 -}
-data Send = Send Sorted SendArgs
+data Send = Send VarRef Sorted SendArgs
 
 type Random = Bool
 
@@ -128,19 +128,19 @@ receive : varref '?' recv_args    /* normal receive */
   | varref '?' '<' recv_args '>'  /* poll with side-effect */
   | varref '?' '?' '<' recv_args '>'  /* ditto */
 -}
-data Receive = Receive     Random ReceiveArgs
-             | PollReceive Random ReceiveArgs
+data Receive = Receive     VarRef Random ReceiveArgs
+             | PollReceive VarRef Random ReceiveArgs
 
 {-
   poll    : varref '?' '[' recv_args ']'  /* poll without side-effect */
   | varref '?' '?' '[' recv_args ']'  /* ditto */
  -}
-data Poll = Poll Random ReceiveArgs
+data Poll = Poll VarRef Random ReceiveArgs
 
 {-
  send_args: arg_lst | any_expr '(' arg_lst ')'
 
- arg_lst  : any_expr []',' any_expr ] *
+ arg_lst  : any_expr [',' any_expr ] *
  -}
 data SendArgs = SnArgs [AnyExpr]
               | SnCall AnyExpr [AnyExpr]
@@ -148,7 +148,7 @@ data SendArgs = SnArgs [AnyExpr]
 {-
   recv_args: recv_arg [ ',' recv_arg ] *  |  recv_arg '(' recv_args ')'
  -}
-data ReceiveArgs = RcArgs [AnyExpr]
+data ReceiveArgs = RcArgs [ReceiveArg]
                  | RcCall ReceiveArg ReceiveArgs
 
 type RcNeg = Bool
@@ -165,7 +165,7 @@ data ReceiveArg = RcVarRef VarRef
   | varref '+' '+'  /* increment */
   | varref '-' '-'  /* decrement */
  -}
-data Assign = AssignExpl VarRef AnyExpr
+data Assign = AssignExpr VarRef AnyExpr
             | AssignIncr VarRef
             | AssignDecr VarRef
 
@@ -223,6 +223,9 @@ range  : varref ':' expr '..' expr
 data Range = RnInterval VarRef Expr Expr
            | RnMember VarRef VarRef
 
+{-
+options : ':' ':' sequence [ ':' ':' sequence ] *
+-}
 type Options = [Sequence]
 
 {-
@@ -271,6 +274,9 @@ data Expr = EAnyExpr AnyExpr
           | ELogic Expr String Expr
           | EChanPoll ChanPoll VarRef
 
+{-
+  chanpoll: FULL | EMPTY | NFULL | NEMPTY
+-}
 data ChanPoll = CpFull | CpEmpty | CpNFull | CpNEmpty
 
 {- name  : alpha [ alpha | number ] * -}
@@ -281,4 +287,3 @@ data Const = CstTrue
            | CstFalse
            | CstSkip
            | CstNum Integer
-
