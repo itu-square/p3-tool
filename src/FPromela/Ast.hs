@@ -40,13 +40,14 @@ data Module = MProcType (Maybe Active) Name [Decl] (Maybe Priority) (Maybe Enabl
             | MNever Sequence
             | MTrace Sequence
             | MUType Name [Decl]
-            | MMType [Name]
             | MDecls [Decl]
 
 {-
   one_decl: [ visible ] typename  ivar [',' ivar ] *
  -}
 data Decl = Decl (Maybe Visible) Type [IVar]
+          | MType [Name]
+
 
 {-
   typename: BIT | BOOL | BYTE | SHORT | INT | MTYPE | CHAN
@@ -93,7 +94,7 @@ type Sequence = [Step]
   | XS varref [',' varref ] *
  -}
 data Step = SStmt Stmt (Maybe Stmt)
-          | SDecl [Decl]
+          | SDecl Decl
           | SXr [VarRef]
           | SXs [VarRef]
 

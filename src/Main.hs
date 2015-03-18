@@ -3,6 +3,7 @@ module Main where
 
 import System.Console.CmdLib
 import Control.Monad
+import qualified HSH.Command as C
 import HSH.ShellEquivs
 import Text.Parsec (runParser)
 
@@ -22,15 +23,19 @@ instance Attributes Main where
 instance RecordCommand Main where
   mode_summary _ = "fPromela file parser and pretty printer"
 
-main :: IO ()
-main = do
-  args <- getArgs
-  opts <- executeR (Main { input = "" }) args
-  promela_files <- glob . input $ opts
-  when (length promela_files <= 0) $ die ("Cannot find file(s): " ++ input opts)
+runPromela :: FilePath -> IO ()
+runPromela file = do
+  promela_files <- glob file
+  when (length promela_files <= 0) $ die ("Cannot find file(s): " ++ file)
   let fname = head promela_files
-  promela_file_contents <- readFile fname
+  promela_file_contents <- C.run $ ("cpp", [fname]) C.-|- ("sed", ["/^\\#/d"])
   let res = runParser pSpec emptyParserState fname promela_file_contents
   case res of
     Left err -> putStrLn . show $ err
     Right _ -> putStrLn "Fini"
+
+main :: IO ()
+main = do
+  args <- getArgs
+  opts <- executeR (Main { input = "" }) args
+  runPromela . input $ opts

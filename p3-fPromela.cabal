@@ -5,6 +5,10 @@ Author: Ahmad Salim Al-Sibahi
 Synopsis: Parser and Transformation tool for fPromela
 Build-Type: Simple
 
+Flag Debug
+  Description: Enable debug support
+  Default:     False
+
 Executable p3-fpromela
   Build-Depends: base, parsec, uniplate, language-c, mtl, cmdlib, HSH
   Main-Is: Main.hs
@@ -13,3 +17,7 @@ Executable p3-fpromela
     FPromela.Ast
     FPromela.Lexer
     FPromela.Parser
+
+  if flag(debug)
+    CC-Options: "-DDEBUG"
+    CPP-Options: -DDEBUG

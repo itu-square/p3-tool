@@ -39,8 +39,7 @@ pModule =   pProctype
         <|> pNever
         <|> pTrace
         <|> pUtype
-        <|> pMtype
-        <|> (MDecls <$> pDecls)
+        <|> (MDecls <$> pDecls) 
         <?> "module"
 
 pProctype :: Parser ParserState Module
@@ -81,23 +80,26 @@ pUtype = do
   modifyState (\st -> st { declared_types = name : declared_types st })
   return $ MUType name decls
 
-pMtype :: Parser ParserState Module
+pMtype :: Parser ParserState Decl
 pMtype = do
   -- In order to avoid failing on mtype variables
   try (reserved "mtype" *> notFollowedBy pName)
   optional (symbol "=")
   names <- braces (commaSep1 pName)
-  return $ MMType names
+  return $ MType names
 
 pDecls :: Parser ParserState [Decl]
-pDecls = semiSep pDecl
+pDecls = do d1 <- pDecl
+            ds <- option [] (symbol ";" *> pDecls)
+            return $ d1 : ds
+       <|> return []
 
 pDecl :: Parser ParserState Decl
-pDecl = do
-  visible <- optionMaybe pVisible
-  typ <- pType
-  ivars <- commaSep1 pIvar
-  return $ Decl visible typ ivars
+pDecl = (do visible <- optionMaybe pVisible
+            typ <- pType
+            ivars <- commaSep1 pIvar
+            return $ Decl visible typ ivars)
+     <|> pMtype
 
 pType :: Parser ParserState Type
 pType =   (reserved "bit" *> return TBit)
@@ -134,22 +136,25 @@ pVisible = (reserved "show" *> return True)
           <|> (reserved "hidden" *> return False)
 
 pSequence :: Parser ParserState Sequence
-pSequence = semiSep1 pStep
+pSequence =  do s1 <- pStep
+                ss <- option [] (symbol ";" *> pSequence)
+                return $ s1 : ss
+        <|> return []
 
 pStep :: Parser ParserState Step
 pStep =  (reserved "xr" *> commaSep1 pVarRef >>= return . SXs)
      <|> (reserved "xs" *> commaSep1 pVarRef >>= return . SXr)
-     <|> (SDecl <$> pDecls)
      <|> do stmt <- pStmt
             ustmt <- optionMaybe (reserved "unless" *> pStmt)
             return $ SStmt stmt ustmt
+     <|> (SDecl <$> pDecl)
 
 
 pIvar :: Parser ParserState IVar
 pIvar = do
   name <- pName
   const <- optionMaybe (brackets pConst)
-  val <- optionMaybe (symbol "=" *> ((pChInit >>= return . Right) <|> (pAnyExpr >>= return . Left)))
+  val <- optionMaybe (symbol "=" *> ( (pAnyExpr >>= return . Left) <|> (pChInit >>= return . Right)))
   return $ IVar name const val
 
 pChInit :: Parser ParserState ChInit
@@ -295,7 +300,7 @@ pAnyExpr' = parens (do expr1 <- pAnyExpr
          <|> (reserved "np_" *> return AeNp)
          <|> (reserved "enabled" *> parens pAnyExpr >>= return . AeEnabled)
          <|> (reserved "pc_value" *> parens pAnyExpr >>= return . AePCValue)
-         <|> (do name1 <- (pName <* lookAhead (symbol "["))
+         <|> (do name1 <- try (pName <* lookAhead (symbol "["))
                  e <- brackets pAnyExpr
                  symbol "@"
                  name2 <- pName
@@ -338,10 +343,10 @@ pExpr = buildExpressionParser exprTable pExpr'
 
 pExpr' :: Parser ParserState Expr
 pExpr' =    parens pExpr
+       <|> (pAnyExpr >>= return . EAnyExpr)
        <|> (do cp <- pChanPoll
                var <- parens pVarRef
                return $ EChanPoll cp var)
-       <|> (pAnyExpr >>= return . EAnyExpr)
 
 exprTable :: OperatorTable String ParserState Identity Expr
 exprTable = [ [binary "&&" AssocLeft]
