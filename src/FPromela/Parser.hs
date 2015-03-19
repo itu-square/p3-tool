@@ -30,7 +30,7 @@ pUname = do
   return (TUName name)
 
 pSpec :: Parser ParserState Spec
-pSpec = whiteSpace *> many1 pModule
+pSpec = whiteSpace *> many1 pModule <* eof
       <?> "specification"
 
 pModule :: Parser ParserState Module
