@@ -10,6 +10,8 @@ import Text.Parsec (runParser)
 import FPromela.Parser
 import FPromela.Ast
 
+import TVL.Parser
+
 data Main = Main { input :: FilePath }
   deriving (Typeable, Data, Eq)
 
@@ -22,6 +24,7 @@ instance Attributes Main where
 
 instance RecordCommand Main where
   mode_summary _ = "fPromela file parser and pretty printer"
+  run' cmd _ = return ()
 
 runPromela :: FilePath -> IO ()
 runPromela file = do
