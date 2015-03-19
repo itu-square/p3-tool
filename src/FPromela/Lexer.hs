@@ -17,7 +17,7 @@ promelaDef = emptyDef {
                         "bit", "bool", "byte", "short", "int", "chan",
                         "active", "priority", "provided", "hidden", "show",
                         "unless", "xr", "xs",
-                        "eval", "if", "fi", "do", "od",
+                        "eval", "if", "fi", "gd", "dg", "do", "od",
                         "for", "atomic", "d_step",
                         "select", "else", "break",
                         "goto", "print", "assert",

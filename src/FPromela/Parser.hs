@@ -224,6 +224,7 @@ pAssign =   (try (pVarRef <* symbol "+" <* symbol "+") >>= return . AssignIncr)
 
 pStmt :: Parser ParserState Stmt
 pStmt =   (reserved "if" *> pOptions <* reserved "fi" >>= return . StIf)
+      <|> (reserved "gd" *> pOptions <* reserved "dg" >>= return . StIf)
       <|> (reserved "do" *> pOptions <* reserved "od" >>= return . StDo)
       <|> do reserved "for"
              range <- parens pRange
