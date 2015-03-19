@@ -1,8 +1,10 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, StandaloneDeriving #-}
 
 module FPromela.Ast where
 
 import Language.C.Syntax.AST (CExtDecl, CStat, CExpr)
+import Data.Data
+import Data.Typeable
 
 --Based on: http://spinroot.com/spin/Man/grammar.html
 
@@ -41,13 +43,14 @@ data Module = MProcType (Maybe Active) Name [Decl] (Maybe Priority) (Maybe Enabl
             | MTrace Sequence
             | MUType Name [Decl]
             | MDecls [Decl]
+            deriving (Eq, Show, Data, Typeable)
 
 {-
   one_decl: [ visible ] typename  ivar [',' ivar ] *
  -}
 data Decl = Decl (Maybe Visible) Type [IVar]
           | MType [Name]
-
+            deriving (Eq, Show, Data, Typeable)
 
 {-
   typename: BIT | BOOL | BYTE | SHORT | INT | MTYPE | CHAN
@@ -61,21 +64,24 @@ data Type = TBit
           | TMType
           | TChan
           | TUName Name
+          deriving (Eq, Show, Data, Typeable)
 
 {-
    active  : ACTIVE [ '[' const ']' ]
  -}
 newtype Active = Active (Maybe Const)
-
+            deriving (Eq, Show, Data, Typeable)
 {-
   priority: PRIORITY const
 -}
 newtype Priority = Priority Const
+            deriving (Eq, Show, Data, Typeable)
 
 {-
   enabler : PROVIDED '(' expr ')'
 -}
 newtype Enabler  = Enabler Expr
+          deriving (Eq, Show, Data, Typeable)
 
 {-
   visible  : HIDDEN | SHOW
@@ -97,21 +103,24 @@ data Step = SStmt Stmt (Maybe Stmt)
           | SDecl Decl
           | SXr [VarRef]
           | SXs [VarRef]
-
+          deriving (Eq, Show, Data, Typeable)
 {-
   ivar    : name [ '[' const ']' ] [ '=' any_expr | '=' ch_init ]
 -}
 data IVar = IVar Name (Maybe Const) (Maybe (Either AnyExpr ChInit))
+          deriving (Eq, Show, Data, Typeable)
 
 {-
   ch_init : '[' const ']' OF '{' typename [ ',' typename ] * '}'
 -}
 data ChInit = ChInit Const [Type]
+          deriving (Eq, Show, Data, Typeable)
 
 {-
   varref  : name [ '[' any_expr ']' ] [ '.' varref ]
  -}
 data VarRef = VarRef Name (Maybe AnyExpr) (Maybe VarRef)
+          deriving (Eq, Show, Data, Typeable)
 
 type Sorted = Bool
 
@@ -120,6 +129,7 @@ type Sorted = Bool
   | varref '!' '!' send_args  /* sorted send */
 -}
 data Send = Send VarRef Sorted SendArgs
+          deriving (Eq, Show, Data, Typeable)
 
 type Random = Bool
 
@@ -131,12 +141,14 @@ receive : varref '?' recv_args    /* normal receive */
 -}
 data Receive = Receive     VarRef Random ReceiveArgs
              | PollReceive VarRef Random ReceiveArgs
+          deriving (Eq, Show, Data, Typeable)
 
 {-
   poll    : varref '?' '[' recv_args ']'  /* poll without side-effect */
   | varref '?' '?' '[' recv_args ']'  /* ditto */
  -}
 data Poll = Poll VarRef Random ReceiveArgs
+          deriving (Eq, Show, Data, Typeable)
 
 {-
  send_args: arg_lst | any_expr '(' arg_lst ')'
@@ -145,12 +157,14 @@ data Poll = Poll VarRef Random ReceiveArgs
  -}
 data SendArgs = SnArgs [AnyExpr]
               | SnCall AnyExpr [AnyExpr]
+          deriving (Eq, Show, Data, Typeable)
 
 {-
   recv_args: recv_arg [ ',' recv_arg ] *  |  recv_arg '(' recv_args ')'
  -}
 data ReceiveArgs = RcArgs [ReceiveArg]
                  | RcCall ReceiveArg ReceiveArgs
+          deriving (Eq, Show, Data, Typeable)
 
 type RcNeg = Bool
 
@@ -160,6 +174,7 @@ type RcNeg = Bool
 data ReceiveArg = RcVarRef VarRef
                 | RcEval VarRef
                 | RcConst RcNeg Const
+          deriving (Eq, Show, Data, Typeable)
 
 {-
  assign  : varref '=' any_expr  /* standard assignment */
@@ -169,6 +184,7 @@ data ReceiveArg = RcVarRef VarRef
 data Assign = AssignExpr VarRef AnyExpr
             | AssignIncr VarRef
             | AssignDecr VarRef
+          deriving (Eq, Show, Data, Typeable)
 
 {-
 stmnt  : IF options FI    /* selection */
@@ -216,6 +232,30 @@ data Stmt = StIf Options
           | StCDecl [CExtDecl]
           | StCTrack String String (Maybe String)
           | StCState String String (Maybe String)
+          deriving (Show, Data, Typeable)
+
+instance Eq Stmt where
+  (StIf opt1) == (StIf opt2) = opt1 == opt2
+  (StDo opt1) == (StDo opt2) = opt1 == opt2
+  (StFor r1 s1) == (StFor r2 s2) = r1 == r2 && s1 == s2
+  (StAtomic s1) == (StAtomic s2) = s1 == s2
+  (StDStep s1) == (StDStep s2) = s1 == s2
+  (StSelect r1) == (StSelect r2) = r1 == r2
+  (StBlock s1) == (StBlock s2) = s1 == s2
+  (StSend s1) == (StSend s2) = s1 == s2
+  (StReceive r1) == (StReceive r2) = r1 == r2
+  (StAssign a1) == (StAssign a2) = a1 == a2
+  StElse == StElse = True
+  StBreak == StBreak = True
+  (StGoto n1) == (StGoto n2) = n1 == n2
+  (StLabelled n1 s1) == (StLabelled n2 s2) = n1 == n2 && s1 == s2
+  (StPrint s1 l1) == (StPrint s2 l2) = s1 == s2 && l1 == l2
+  (StAssert e1) == (StAssert e2) = e1 == e2
+  (StExpr e1) == (StExpr e2) = e1 == e2
+  _ == _ = False
+
+
+
 
 {-
 range  : varref ':' expr '..' expr
@@ -223,6 +263,7 @@ range  : varref ':' expr '..' expr
  -}
 data Range = RnInterval VarRef Expr Expr
            | RnMember VarRef VarRef
+          deriving (Eq, Show, Data, Typeable)
 
 {-
 options : ':' ':' sequence [ ':' ':' sequence ] *
@@ -262,6 +303,7 @@ data AnyExpr = AeBinOp  AnyExpr String AnyExpr
              | AeRun Name [AnyExpr] (Maybe Priority)
              | AeGetPriority Expr
              | AeSetPriority Expr Expr
+          deriving (Eq, Show, Data, Typeable)
 
 {-
 expr  : any_expr
@@ -272,11 +314,13 @@ expr  : any_expr
 data Expr = EAnyExpr AnyExpr
           | ELogic Expr String Expr
           | EChanPoll ChanPoll VarRef
+          deriving (Eq, Show, Data, Typeable)
 
 {-
   chanpoll: FULL | EMPTY | NFULL | NEMPTY
 -}
 data ChanPoll = CpFull | CpEmpty | CpNFull | CpNEmpty
+          deriving (Eq, Show, Data, Typeable)
 
 {- name  : alpha [ alpha | number ] * -}
 type Name     = String
@@ -286,3 +330,4 @@ data Const = CstTrue
            | CstFalse
            | CstSkip
            | CstNum Integer
+          deriving (Eq, Show, Data, Typeable)

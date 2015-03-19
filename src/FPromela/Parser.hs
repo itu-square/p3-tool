@@ -9,6 +9,7 @@ import Control.Applicative ((<$>), (<*), (*>), (<*>))
 import Control.Monad
 import Control.Monad.Identity
 import Language.C.Syntax.AST (CExtDecl, CStat, CExpr)
+import Data.Maybe
 
 data ParserState = ParserState { declared_types :: [String] }
 
@@ -29,8 +30,11 @@ pUname = do
   when (not (name `elem` declared_types st)) $ unexpected ("Type: " ++ name)
   return (TUName name)
 
+many1M :: Parser st (Maybe a) -> Parser st [a]
+many1M p = catMaybes <$> many1 p
+
 pSpec :: Parser ParserState Spec
-pSpec = whiteSpace *> many1 pModule <* eof
+pSpec = whiteSpace *> many1M ((pModule >>= return . Just) <|> (symbol ";" *> return Nothing)) <* eof
       <?> "specification"
 
 pModule :: Parser ParserState Module
@@ -39,7 +43,7 @@ pModule =   pProctype
         <|> pNever
         <|> pTrace
         <|> pUtype
-        <|> (MDecls <$> pDecls) 
+        <|> (MDecls <$> pDecls)
         <?> "module"
 
 pProctype :: Parser ParserState Module

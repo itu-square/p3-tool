@@ -32,7 +32,7 @@ runPromela file = do
   let res = runParser pSpec emptyParserState fname promela_file_contents
   case res of
     Left err -> putStrLn . show $ err
-    Right _ -> putStrLn "Fini"
+    Right res -> putStrLn . show $ res
 
 main :: IO ()
 main = do
