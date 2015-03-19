@@ -37,7 +37,7 @@ SIMPLE_TYPE   =  "int" ID "in" SET_EXPRESSION ";"
              | "bool" ID ";"
  -}
 data SimpleTypeDecl = TIntScalar Name
-                    | TRealScala Name
+                    | TRealScalar Name
                     | TBoolScalar Name
                     | TIntRange Name SetExpr
                     | TRealRange Name SetExpr
@@ -59,7 +59,7 @@ CONSTANT  =  "const" "int" ID INTEGER ";"
  -}
 data ConstantDecl = CstInt Name Integer
                   | CstReal Name Double
-                  | CstTrue Name
+                  | CstBool Name Bool
                  deriving (Eq, Show, Data, Typeable)
 
 
