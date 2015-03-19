@@ -311,9 +311,12 @@ pEExpr' = parens (do expr1 <- pAnyExpr
          <|> (reserved "pc_value" *> parens pAnyExpr >>= return . Right . AePCValue)
          <|> (do name1 <- try (pName <* lookAhead (symbol "["))
                  e <- brackets pAnyExpr
-                 symbol "@"
-                 name2 <- pName
-                 return . Right $ AeRemote name1 e name2)
+                 (do symbol "@"
+                     name2 <- pName
+                     return . Right $ AeRemote name1 e name2)
+                  <|> (do acc <- optionMaybe (dot *> pVarRef)
+                          return . Right . AeVarRef $ VarRef name1 (Just e) acc))
+          -- Just to ensure that the ambigous case between remote access and variable references is handled correctly
          <|> (do reserved "run"
                  name <- pName
                  args <- parens (commaSep pAnyExpr)
