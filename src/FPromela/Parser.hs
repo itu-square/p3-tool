@@ -90,9 +90,8 @@ pMtype = do
 
 pDecls :: Parser ParserState [Decl]
 pDecls = do d1 <- pDecl
-            ds <- option [] (symbol ";" *> pDecls)
+            ds <- option [] (symbol ";" *> option [] pDecls)
             return $ d1 : ds
-       <|> return []
 
 pDecl :: Parser ParserState Decl
 pDecl = (do visible <- optionMaybe pVisible
@@ -137,9 +136,8 @@ pVisible = (reserved "show" *> return True)
 
 pSequence :: Parser ParserState Sequence
 pSequence =  do s1 <- pStep
-                ss <- option [] (symbol ";" *> pSequence)
+                ss <- option [] ((reservedOp ";" <|> reservedOp "->") *> option [] pSequence)
                 return $ s1 : ss
-        <|> return []
 
 pStep :: Parser ParserState Step
 pStep =  (reserved "xr" *> commaSep1 pVarRef >>= return . SXs)
@@ -172,7 +170,7 @@ pVarRef = do
   return $ VarRef name iex acc
 
 pSend :: Parser ParserState Send
-pSend = do var <- try (pVarRef <* symbol "!")
+pSend = do var <- try (pVarRef <* symbol "!" <* notFollowedBy (symbol "=")) -- in order to avoid !=
            sorted <- option False (symbol "!" *> return True)
            args <- pSendArgs
            return $ Send var sorted args
@@ -220,7 +218,7 @@ pReceiveArg =   (pVarRef >>= return . RcVarRef)
 pAssign :: Parser ParserState Assign
 pAssign =   (try (pVarRef <* symbol "+" <* symbol "+") >>= return . AssignIncr)
         <|> (try (pVarRef <* symbol "-" <* symbol "-") >>= return . AssignDecr)
-        <|> do var <- (pVarRef <* symbol "=" <* notFollowedBy (symbol "=")) -- to avoid equality test
+        <|> do var <- try (pVarRef <* reservedOp "=") -- to avoid equality test
                val <- pAnyExpr
                return $ AssignExpr var val
 
@@ -241,7 +239,7 @@ pStmt =   (reserved "if" *> pOptions <* reserved "fi" >>= return . StIf)
       <|> (reserved "else" *> return StElse)
       <|> (reserved "break" *> return StBreak)
       <|> (reserved "goto" *> pName >>= return . StGoto)
-      <|> do label <- (try pName <* symbol ":")
+      <|> do label <- try (pName <* symbol ":")
              stmt <- pStmt
              return $ StLabelled label stmt
       <|> do reserved "print"
@@ -284,76 +282,78 @@ pRange = do var <- pVarRef
                      return $ RnInterval var e1 e2
 
 pAnyExpr :: Parser ParserState AnyExpr
-pAnyExpr = buildExpressionParser anyExprTable pAnyExpr'
+pAnyExpr = do e <- pEExpr
+              case e of
+                Left e -> unexpected "expression with channel polling"
+                Right ae -> return ae
 
-pAnyExpr' :: Parser ParserState AnyExpr
-pAnyExpr' = parens (do expr1 <- pAnyExpr
-                       option expr1
-                        (do symbol "->"
-                            expr2 <- pAnyExpr
-                            symbol ":"
-                            expr3 <- pAnyExpr
-                            return $ AeTrans expr1 expr2 expr3))
-         <|> (reserved "len" *> parens pVarRef >>= return . AeLen)
-         <|> (pPoll >>= return . AePoll)
-         <|> (reserved "timeout" *> return AeTimeout)
-         <|> (reserved "np_" *> return AeNp)
-         <|> (reserved "enabled" *> parens pAnyExpr >>= return . AeEnabled)
-         <|> (reserved "pc_value" *> parens pAnyExpr >>= return . AePCValue)
+pEExpr :: Parser ParserState (Either Expr AnyExpr)
+pEExpr = buildExpressionParser eTable pEExpr'
+
+pEExpr' :: Parser ParserState (Either Expr AnyExpr)
+pEExpr' = parens (do expr1 <- pAnyExpr
+                     option (Right expr1)
+                      (do symbol "->"
+                          expr2 <- pAnyExpr
+                          symbol ":"
+                          expr3 <- pAnyExpr
+                          return . Right $ AeTrans expr1 expr2 expr3))
+         <|> (reserved "len" *> parens pVarRef >>= return . Right . AeLen)
+         <|> (pPoll >>= return . Right . AePoll)
+         <|> (reserved "timeout" *> (return . Right $ AeTimeout))
+         <|> (reserved "np_" *> (return . Right $ AeNp))
+         <|> (reserved "enabled" *> parens pAnyExpr >>= return . Right . AeEnabled)
+         <|> (reserved "pc_value" *> parens pAnyExpr >>= return . Right . AePCValue)
          <|> (do name1 <- try (pName <* lookAhead (symbol "["))
                  e <- brackets pAnyExpr
                  symbol "@"
                  name2 <- pName
-                 return $ AeRemote name1 e name2)
+                 return . Right $ AeRemote name1 e name2)
          <|> (do reserved "run"
                  name <- pName
                  args <- parens (commaSep pAnyExpr)
                  priority <- optionMaybe pPriority
-                 return $ AeRun name args priority)
-         <|> (do reserved "get_priority"
-                 arg <- parens pExpr
-                 return $ AeGetPriority arg)
+                 return . Right $ AeRun name args priority)
+         <|> (reserved "get_priority" *> parens pExpr >>= return . Right . AeGetPriority)
          <|> (do reserved "set_priority"
-                 (arg1, arg2) <- parens ((,) <$> pExpr <*> pExpr)
-                 return $ AeSetPriority arg1 arg2)
-         <|> (pVarRef >>= return . AeVarRef)
-         <|> (pConst >>= return . AeConst)
+                 (ae1, ae2) <- parens ((,) <$> (pExpr <* comma) <*> pExpr)
+                 return . Right $ AeSetPriority ae1 ae2)
+         <|> (do cp <- pChanPoll
+                 var <- parens pVarRef
+                 return . Left $ EChanPoll cp var)
+         <|> (Right . AeVarRef <$> pVarRef)
+         <|> (Right . AeConst <$> pConst)
 
-anyExprTable :: OperatorTable String ParserState Identity AnyExpr
-anyExprTable = [ [unary "~", unary "-", unary "!"]
-               , [binary "*" AssocLeft, binary "/" AssocLeft, binary "%" AssocLeft]
-               , [binary "+" AssocLeft, binary "-" AssocLeft]
-               , [binary "<<" AssocLeft, binary ">>" AssocLeft]
-               , [binary "<" AssocLeft, binary "<=" AssocLeft, binary ">" AssocLeft, binary ">=" AssocLeft]
-               , [binary "==" AssocLeft, binary "!=" AssocLeft]
-               , [binary "&" AssocLeft]
-               , [binary "^" AssocLeft]
-               , [binary "|" AssocLeft]
-               , [binary "&&" AssocLeft]
-               , [binary "||" AssocLeft]
-               ]
-  where binary op assoc = Infix (reservedOp op *> return (flip AeBinOp op)) assoc
-        unary  op       = Prefix (reservedOp op *> return (AeUnOp op))
+eTable :: OperatorTable String ParserState Identity (Either Expr AnyExpr)
+eTable = [ [unary "~", unary "-", unary "!"]
+           , [binary "*" AssocLeft, binary "/" AssocLeft, binary "%" AssocLeft]
+           , [binary "+" AssocLeft, binary "-" AssocLeft]
+           , [binary "<<" AssocLeft, binary ">>" AssocLeft]
+           , [binary "<" AssocLeft, binary "<=" AssocLeft, binary ">" AssocLeft, binary ">=" AssocLeft]
+           , [binary "==" AssocLeft, binary "!=" AssocLeft]
+           , [binary "&" AssocLeft]
+           , [binary "^" AssocLeft]
+           , [binary "|" AssocLeft]
+           , [logic "&&"]
+           , [logic "||"]
+           ]
+  where binary op assoc                   = Infix (reservedOp op *> return (anyBin op)) assoc
+        unary  op                         = Prefix (reservedOp op *> return (anyUn op))
+        logic  op                         = Infix (reserved op *> return (eLog op)) AssocLeft
+        anyBin op (Right ae1) (Right ae2) = Right $ AeBinOp ae1 op ae2
+        anyUn  op (Right ae)              = Right $ AeUnOp op ae
+        eLog   op (Right ae1) (Right ae2) = Right $ AeBinOp ae1 op ae2
+        eLog   op e1          e2          = Left $ ELogic (coerceExpr e1) op (coerceExpr e2)
+
+coerceExpr :: (Either Expr AnyExpr) -> Expr
+coerceExpr (Right ae) = EAnyExpr ae
+coerceExpr (Left e)   = e
 
 pOptions :: Parser ParserState Options
-pOptions = many1 (symbol ":" *> symbol ":" *> pSequence)
+pOptions = many1 (reservedOp "::" *> pSequence)
 
 pExpr :: Parser ParserState Expr
-pExpr = buildExpressionParser exprTable pExpr'
-
-pExpr' :: Parser ParserState Expr
-pExpr' =    parens pExpr
-       <|> (pAnyExpr >>= return . EAnyExpr)
-       <|> (do cp <- pChanPoll
-               var <- parens pVarRef
-               return $ EChanPoll cp var)
-
-exprTable :: OperatorTable String ParserState Identity Expr
-exprTable = [ [binary "&&" AssocLeft]
-            , [binary "||" AssocLeft]
-            ]
-  where binary op assoc = Infix (reservedOp op *> return (flip ELogic op)) assoc
-
+pExpr = pEExpr >>= return . coerceExpr
 
 pChanPoll :: Parser ParserState ChanPoll
 pChanPoll =   (reserved "full" *> return CpFull)

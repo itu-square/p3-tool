@@ -247,8 +247,7 @@ any_expr: '(' any_expr ')'
   | get_priority( expr )      /* expr refers to a pid */
   | set_priority( expr , expr )    /* first expr refers to a pid */
  -}
-data AnyExpr = AeParens AnyExpr
-             | AeBinOp  AnyExpr String AnyExpr
+data AnyExpr = AeBinOp  AnyExpr String AnyExpr
              | AeUnOp   String AnyExpr
              | AeTrans  AnyExpr AnyExpr AnyExpr
              | AeLen VarRef
@@ -271,7 +270,6 @@ expr  : any_expr
   | chanpoll '(' varref ')'  /* may not be negated */
  -}
 data Expr = EAnyExpr AnyExpr
-          | EParens Expr
           | ELogic Expr String Expr
           | EChanPoll ChanPoll VarRef
 
