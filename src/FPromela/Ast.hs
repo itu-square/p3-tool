@@ -300,7 +300,7 @@ data AnyExpr = AeBinOp  AnyExpr String AnyExpr
              | AeEnabled AnyExpr
              | AePCValue AnyExpr
              | AeRemote Name AnyExpr Name
-             | AeRun Name [AnyExpr] (Maybe Priority)
+             | AeRun VarRef [AnyExpr] (Maybe Priority)
              | AeGetPriority Expr
              | AeSetPriority Expr Expr
           deriving (Eq, Show, Data, Typeable)

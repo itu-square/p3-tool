@@ -318,7 +318,7 @@ pEExpr' = parens (do expr1 <- pAnyExpr
                           return . Right . AeVarRef $ VarRef name1 (Just e) acc))
           -- Just to ensure that the ambigous case between remote access and variable references is handled correctly
          <|> (do reserved "run"
-                 name <- pName
+                 name <- pVarRef
                  args <- parens (commaSep pAnyExpr)
                  priority <- optionMaybe pPriority
                  return . Right $ AeRun name args priority)
