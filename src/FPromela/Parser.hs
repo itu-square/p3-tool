@@ -136,7 +136,7 @@ pVisible = (reserved "show" *> return True)
 
 pSequence :: Parser ParserState Sequence
 pSequence =  do s1 <- pStep
-                ss <- option [] ((reservedOp ";" <|> reservedOp "->") *> option [] pSequence)
+                ss <- option [] (pSeparator *> option [] pSequence)
                 return $ s1 : ss
 
 pStep :: Parser ParserState Step
@@ -294,7 +294,7 @@ pEExpr = buildExpressionParser eTable pEExpr'
 pEExpr' :: Parser ParserState (Either Expr AnyExpr)
 pEExpr' = parens (do expr1 <- pAnyExpr
                      option (Right expr1)
-                      (do symbol "->"
+                      (do pSeparator
                           expr2 <- pAnyExpr
                           symbol ":"
                           expr3 <- pAnyExpr
@@ -367,4 +367,7 @@ pConst =   (reserved "true" *> return CstTrue)
        <|> (reserved "false" *> return CstFalse)
        <|> (reserved "skip" *> return CstSkip)
        <|> (natural >>= return . CstNum)
+
+pSeparator :: Parser ParserState ()
+pSeparator = (semi <|> symbol "->") *> return ()
 
