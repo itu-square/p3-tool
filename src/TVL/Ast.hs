@@ -143,11 +143,12 @@ ATTRIBUTE_BODY =  "is" EXPRESSION
                | "in" SET_EXPRESSION
                | "," ATTRIBUTE_CONDITIONNAL
  -}
-data AttributeBody = AbVal AttributeValue
+data AttributeBody = AbIs Expr
+                   | AbIn SetExpr (Maybe AttributeConditional)
                    | AbCond AttributeConditional
                    deriving (Eq, Show, Data, Typeable)
 
-data AttributeValue = AvIn SetExpr (Maybe AttributeConditional)
+data AttributeValue = AvIn SetExpr
                     | AvIs Expr
                     deriving (Eq, Show, Data, Typeable)
 
