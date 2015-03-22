@@ -40,6 +40,9 @@ stringLiteral = Tok.stringLiteral lexer
 natural :: Parser st Integer
 natural = Tok.natural lexer
 
+integer :: Parser st Integer
+integer = Tok.integer lexer
+
 float :: Parser st Double
 float = Tok.float lexer
 

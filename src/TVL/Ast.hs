@@ -210,7 +210,8 @@ data Expr = BinOp String Expr Expr
           | UnOp String Expr
           | Ref Name
           | InSet Expr SetExpr
-          | BuiltinFun (Either [Expr] ChildrenId)
+          | EAbs Expr
+          | BuiltinFun String (Either [Expr] ChildrenId)
           | Exclusion Name Name
           | Dependency Name Name
           | Ternary Expr Expr Expr

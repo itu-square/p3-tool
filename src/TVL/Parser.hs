@@ -134,9 +134,71 @@ pAttributeValue :: Parser st AttributeValue
 pAttributeValue =  (reserved "is" *> (AvIs <$> pExpr))
                <|> (reserved "in" *> (AvIn <$> pSetExpr))
 
-pExpr = undefined
-  
-pSetExpr = undefined
+pExpr :: Parser st Expr
+pExpr = do expr <- pEExpr
+           checkExpr expr
+           (reserved "in" *> (InSet expr <$> pSetExpr))
+             <|> return expr
+   where checkExpr (BinOp ":" _ _) = unexpected "(:) is not a valid top-level operator" -- Simple non-exhaustful check
+         checkExpr _ = return ()
+
+pEExpr :: Parser st Expr
+pEExpr = buildExpressionParser eTable pEExpr'
+
+pEExpr' :: Parser st Expr
+pEExpr' =   parens pExpr
+        <|> (reserved "true" *> return (EBool True))
+        <|> (reserved "false" *> return (EBool False))
+        <|> (do name <- pLongId
+                (reserved "excludes" *> (Exclusion name <$> pLongId))
+                  <|> (reserved "requires" *> (Dependency name <$> pLongId))
+                  <|> (return . Ref $ name))
+        <|> (reserved "abs" *> (EAbs <$> parens pExpr))
+        <|> choice (map pBuiltInFun ["and", "or", "xor", "sum", "mul", "min", "max", "count", "average"])
+        <|> (EInt <$> integer)
+        <|> (EReal <$> float)
+
+pBuiltInFun :: String -> Parser st Expr
+pBuiltInFun name = do reserved name
+                      args <- pBuiltInFunArg
+                      return $ BuiltinFun name args
+  where pBuiltInFunArg =  (Right <$> pChildrenId)
+                      <|> (Left <$> commaSep1 pExpr)
+
+pChildrenId :: Parser st ChildrenId
+pChildrenId = ChdId <$> pChildren <*> (dot *> pLongId)
+  where pChildren =  (reserved "selectedchildren" *> return ChdSelected)
+                 <|> (reserved "children" *> return ChdAll)
+                         
+ 
+                      
+
+
+eTable :: OperatorTable String st Identity Expr
+eTable =   [ [unary "-", unary "!"]
+           , [binary "*" AssocLeft, binary "/" AssocLeft, binary "%" AssocLeft]
+           , [binary "+" AssocLeft, binary "-" AssocLeft]
+           , [binary "<" AssocLeft, binary "<=" AssocLeft, binary ">" AssocLeft, binary ">=" AssocLeft]
+           , [binary "==" AssocLeft, binary "!=" AssocLeft]
+           , [binary "&&" AssocLeft]
+           , [binary "||" AssocLeft]
+           , [binary "->" AssocRight, binary "<-" AssocRight, binary "<->" AssocRight]
+           , [ternary "?"]
+           , [binary ":" AssocNone]
+           ]
+   where binary op assoc                    = Infix (reservedOp op *> return (BinOp op)) assoc
+         unary  op                          = Prefix (reservedOp op *> return (UnOp op))
+         ternary op                         = Infix (reservedOp op *> return (mkTernary op)) AssocRight
+         mkTernary op e1 (BinOp ":" e2 e3)  = Ternary e1 e2 e3
+ 
+pSetExpr :: Parser st SetExpr
+pSetExpr =  braces (SExprs <$> commaSep1 pExpr)
+        <|> brackets (SRange <$> pSetExprBound <*> (symbol ".." *> pSetExprBound))
+
+pSetExprBound :: Parser st SetExprBound
+pSetExprBound =  (SBReal <$> float)
+             <|> (SBInt <$> integer)
+             <|> (symbol "*" *> return SBUnbounded)
 
 pConstraintDecl :: Parser st ConstraintDecl
 pConstraintDecl =  (CtIfIn <$> (reserved "ifin:" *> pExpr <* semi))
