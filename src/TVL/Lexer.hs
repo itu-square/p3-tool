@@ -11,12 +11,15 @@ tvlDef = emptyDef {
   Tok.reservedNames  = [ "int", "real", "enum", "bool", "struct"
                        , "const", "true", "false"
                        , "this", "parent", "root"
-                       , "group", "oneof", "someof", "allof", "opt", "shared"
+                       , "group", "oneOf", "someOf", "allOf", "opt", "shared"
                        , "ifin:", "ifout:", "is"
                        , "and", "xor", "or"
                        , "abs", "sum", "mul", "min", "max", "count", "avg"
                        , "data", "selectedchildren", "children"
                        ]
+  , Tok.caseSensitive = False
+  , Tok.identStart = letter
+  , Tok.identLetter = alphaNum <|> oneOf "_"
 }
 
 lexer :: Tok.TokenParser st

@@ -9,7 +9,9 @@ import Control.Applicative ((<$>), (<*), (*>), (<*>))
 import Control.Monad
 import Control.Monad.Identity
 import Data.Maybe
+import Data.List
 
+import Debug.Trace
 
 pModel :: Parser st Model
 pModel = whiteSpace *> many pDecl <* eof
@@ -73,14 +75,16 @@ pShortId =  (reserved "root" *> return "root")
         <|> identifier
 
 pLongId :: Parser st Name
-pLongId = sepBy1 (char '.') pShortId
+pLongId = intercalate "." <$> pShortId `sepBy1` (char '.')
 
 pFeatureDecl :: Parser st FeatureDecl
 pFeatureDecl = do
   (root, name) <- ((,) <$> (reserved "root" *> return True) <*> identifier)
                   <|> ((,) False <$> pLongId)
-  (FtFeature root name <$> braces (many1 pFtBodyItem))
-    <|> (FtGroup root name <$> (reserved "group" *> pCardinality) <*> braces (commaSep1 pFtHiDecl))
+  traceShow name $ return ()
+  (FtGroup root name <$> (reserved "group" *> pCardinality) <*> braces (commaSep1 pFtHiDecl))
+    <|> (FtFeature root name <$> braces (many1 pFtBodyItem))
+  <?> "feature declaration"
 
 pFtBodyItem :: Parser st FtBodyItem
 pFtBodyItem = pData
@@ -94,19 +98,20 @@ pFtGroup = FtiGroup <$> (reserved "group" *> pCardinality) <*> braces (commaSep1
 
 pFtHiDecl :: Parser st FtHiDecl
 pFtHiDecl = do presence <- pPresence
-               (FthItem presence <$> try (pLongId <* notFollowedBy (symbol "{"))) -- In order to avoid feature declaration
+               (FthItem presence <$> try (pLongId <* notFollowedBy ((symbol "{" *> return ())  <|> reserved "group"))) 
+               -- In order to avoid feature declaration
                   <|> (ensureNotShared presence *> FthFeature presence <$> pFeatureDecl)
   where ensureNotShared PShared = fail "Features can not be shared"
         ensureNotShared _ = return ()
-  
+
 pPresence :: Parser st Presence
 pPresence = option PNone ((reserved "opt" *> return POptional) <|> (reserved "shared" *> return PShared))
 
 pCardinality :: Parser st Cardinality
-pCardinality =  (reserved "oneof" *> return CdOneOf)
-            <|> (reserved "someof" *> return CdSomeOf)
-            <|> (reserved "allof" *> return CdAllOf)
-            <|> brackets (CdRange <$> natural <*> ((Just <$> natural) <|> (symbol "*" *> return Nothing)))
+pCardinality =  (reserved "oneOf" *> return CdOneOf)
+            <|> (reserved "someOf" *> return CdSomeOf)
+            <|> (reserved "allOf" *> return CdAllOf)
+            <|> brackets (CdRange <$> (natural <* symbol "..") <*> ((Just <$> natural) <|> (symbol "*" *> return Nothing)))
 
 pAttributeDecl :: Parser st AttributeDecl
 pAttributeDecl =  (AttrInt <$> (reserved "int" *> identifier) <*> (optionMaybe pAttributeBody <* semi))
