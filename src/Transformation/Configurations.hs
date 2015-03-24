@@ -8,6 +8,8 @@ import Control.Monad
 import qualified Data.Set.Monad as Set
 import Data.List
 
+import Debug.Trace
+
 data Config = Config { selections :: Set.Set (Set.Set String), allf :: Set.Set String }
   deriving (Eq, Show)
 
@@ -66,7 +68,7 @@ mergeRange' range cfgs = do
 mergeRange :: Integer -> (Maybe Integer) -> [Config] -> Either String Config
 mergeRange kmin (Just kmax) cfgs | 0 <= kmin && kmin <= kmax
                                              && kmax <= toInteger (length cfgs) = mergeRange' [kmin .. kmax] cfgs
-mergeRange kmin Nothing     cfgs | 0 <= kmin                                    = mergeRange' [kmin ..] cfgs
+mergeRange kmin Nothing     cfgs | 0 <= kmin                                    = mergeRange' [kmin .. toInteger (length cfgs)] cfgs
 mergeRange kmin kmax _ = Left ("Unsupported range [" ++ show kmin ++ ".." ++ maybe "*" (show . id) kmax ++ "]")
 
 mergeExactly :: Integer -> [Config] -> Either String Config
