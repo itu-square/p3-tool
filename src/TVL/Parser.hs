@@ -11,8 +11,6 @@ import Control.Monad.Identity
 import Data.Maybe
 import Data.List
 
-import Debug.Trace
-
 pModel :: Parser st Model
 pModel = whiteSpace *> many pDecl <* eof
 
@@ -81,7 +79,6 @@ pFeatureDecl :: Parser st FeatureDecl
 pFeatureDecl = do
   (root, name) <- ((,) <$> (reserved "root" *> return True) <*> identifier)
                   <|> ((,) False <$> pLongId)
-  traceShow name $ return ()
   (FtGroup root name <$> (reserved "group" *> pCardinality) <*> braces (commaSep1 pFtHiDecl))
     <|> (FtFeature root name <$> braces (many1 pFtBodyItem))
   <?> "feature declaration"

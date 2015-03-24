@@ -8,9 +8,10 @@ import HSH.ShellEquivs
 import Text.Parsec (runParser)
 
 import FPromela.Parser as FPromela
-import FPromela.Ast
 
 import qualified TVL.Parser as TVL
+
+import qualified Transformation.Configurations as Cfgs
 
 data Main = Main { input :: FilePath }
   deriving (Typeable, Data, Eq)
@@ -45,7 +46,7 @@ runPromela file = do
       let tvl_res = runParser TVL.pModel () tvl_file_name tvl_file_contents
       case tvl_res of
          Left err -> putStrLn . ("Error while parsing TVL file(s): \n" ++) . show $ err
-         Right tvl_res -> putStrLn . show $ (promela_res, tvl_res)
+         Right tvl_res -> putStrLn . show $ Cfgs.generateConfigs tvl_res
 
 main :: IO ()
 main = do
