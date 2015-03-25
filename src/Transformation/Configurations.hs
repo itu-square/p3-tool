@@ -8,7 +8,7 @@ import Control.Monad
 import qualified Data.Set.Monad as Set
 import Data.List
 
-import Debug.Trace
+import Control.Monad.Error
 
 data Config = Config { config_included :: Set.Set String, config_excluded :: Set.Set String }
   deriving (Eq, Show, Ord)
@@ -19,26 +19,26 @@ data ConfigState = ConfigState { selections :: Set.Set (Set.Set String), allf ::
 emptyConfigState :: ConfigState
 emptyConfigState = ConfigState (Set.singleton Set.empty) $ Set.empty
 
-generateConfigs :: T.Model -> Either String (Set.Set Config)
+generateConfigs :: Monad m => T.Model -> ErrorT String m (Set.Set Config)
 generateConfigs [T.DFeature f] = do
   ConfigState sels alls <- generateFeatureConfigState True f
   return $ Set.map (\s -> Config s (alls `Set.difference` s)) sels
-generateConfigs m = Left ("Unsupported configuration model: " ++ show m)
+generateConfigs m = throwError ("Unsupported configuration model: " ++ show m)
 
-generateFeatureConfigState :: Bool -> T.FeatureDecl -> Either String ConfigState
+generateFeatureConfigState :: Monad m => Bool -> T.FeatureDecl -> ErrorT String m ConfigState
 generateFeatureConfigState mustberoot (T.FtFeature root name items) | not root || mustberoot =  do
   itemConfigStates <- mapM generateItemConfigState items
   mergeAll (ConfigState { selections = Set.singleton (Set.singleton name), allf = Set.singleton name } : itemConfigStates)
 generateFeatureConfigState mustberoot (T.FtGroup root name crd hidecls) | not root || mustberoot = do
   groupConfigState <- generateGroupConfigState crd hidecls
   return $ ConfigState (Set.map (Set.singleton name `Set.union`) (selections groupConfigState)) (Set.singleton name `Set.union` allf groupConfigState)
-generateFeatureConfigState _ f = Left ("Feature must be root: " ++ show f)
+generateFeatureConfigState _ f = throwError ("Feature must be root: " ++ show f)
 
-generateItemConfigState :: T.FtBodyItem -> Either String ConfigState
+generateItemConfigState :: Monad m => T.FtBodyItem -> ErrorT String m ConfigState
 generateItemConfigState (T.FtiGroup crd hidecls) = generateGroupConfigState crd hidecls
-generateItemConfigState f                        = Left ("Unsupported feature item: " ++ show f)
+generateItemConfigState f                        = throwError ("Unsupported feature item: " ++ show f)
 
-generateGroupConfigState :: T.Cardinality -> [T.FtHiDecl] -> Either String ConfigState
+generateGroupConfigState :: Monad m => T.Cardinality -> [T.FtHiDecl] -> ErrorT String m ConfigState
 generateGroupConfigState crd hidecls = do
     cfgs <- mapM generateHiDeclConfigState hidecls
     mergeRange (crdl crd) (crdh crd) cfgs
@@ -51,30 +51,30 @@ generateGroupConfigState crd hidecls = do
         crdh T.CdAllOf       = Just . toInteger $ length hidecls
         crdh (T.CdRange l h) = h
 
-generateHiDeclConfigState :: T.FtHiDecl -> Either String ConfigState
+generateHiDeclConfigState :: Monad m => T.FtHiDecl -> ErrorT String m ConfigState
 generateHiDeclConfigState (T.FthFeature pr f) = do
  c <- generateFeatureConfigState False f
  generatePresenceConfigState pr c
 generateHiDeclConfigState (T.FthItem pr name) = do
  generatePresenceConfigState pr (ConfigState { selections = Set.singleton (Set.singleton name), allf = Set.singleton name })
 
-generatePresenceConfigState :: T.Presence -> ConfigState -> Either String ConfigState
+generatePresenceConfigState :: Monad m => T.Presence -> ConfigState -> ErrorT String m ConfigState
 generatePresenceConfigState T.PNone     c                   = return c
 generatePresenceConfigState T.POptional (ConfigState sels alls)  = return $ ConfigState (Set.singleton Set.empty `Set.union` sels) alls
-generatePresenceConfigState T.PShared   _                   = Left "Shared features unsupported"
+generatePresenceConfigState T.PShared   _                   = throwError "Shared features unsupported"
 
-mergeRange' :: [Integer] -> [ConfigState] -> Either String ConfigState
+mergeRange' :: Monad m => [Integer] -> [ConfigState] -> ErrorT String m ConfigState
 mergeRange' range cfgs = do
     subs <- mapM (flip mergeExactly cfgs) range
     return $ ConfigState (Set.unions (map selections subs)) (Set.unions (map allf subs))
 
-mergeRange :: Integer -> (Maybe Integer) -> [ConfigState] -> Either String ConfigState
+mergeRange :: Monad m => Integer -> (Maybe Integer) -> [ConfigState] -> ErrorT String m ConfigState
 mergeRange kmin (Just kmax) cfgs | 0 <= kmin && kmin <= kmax
                                              && kmax <= toInteger (length cfgs) = mergeRange' [kmin .. kmax] cfgs
 mergeRange kmin Nothing     cfgs | 0 <= kmin                                    = mergeRange' [kmin .. toInteger (length cfgs)] cfgs
-mergeRange kmin kmax _ = Left ("Unsupported range [" ++ show kmin ++ ".." ++ maybe "*" (show . id) kmax ++ "]")
+mergeRange kmin kmax _ = throwError ("Unsupported range [" ++ show kmin ++ ".." ++ maybe "*" (show . id) kmax ++ "]")
 
-mergeExactly :: Integer -> [ConfigState] -> Either String ConfigState
+mergeExactly :: Monad m => Integer -> [ConfigState] -> ErrorT String m ConfigState
 mergeExactly k cfgs | k <= 0 = do
   allcfgs <- mergeAll cfgs
   return $ ConfigState (Set.singleton Set.empty) (allf allcfgs)
@@ -88,7 +88,7 @@ mergeExactly k cfgs = do
   return $ ConfigState (Set.unions allselections) (allf allcfgs)
 
 
-mergeAll :: [ConfigState] -> Either String ConfigState
+mergeAll :: Monad m => [ConfigState] -> ErrorT String m ConfigState
 mergeAll = return . foldr mergeConfigStates emptyConfigState
   where mergeConfigStates :: ConfigState -> ConfigState -> ConfigState
         mergeConfigStates c1 c2 = ConfigState { selections = mergeSelections (selections c1) (selections c2), allf = allf c1 `Set.union` allf c2 }

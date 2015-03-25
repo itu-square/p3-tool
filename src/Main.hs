@@ -1,8 +1,11 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, DeriveDataTypeable #-}
 module Main where
 
-import System.Console.CmdLib
 import Control.Monad
+import Control.Monad.Error
+
+
+import System.Console.CmdLib
 import qualified HSH.Command as C
 import HSH.ShellEquivs
 import Text.Parsec (runParser)
@@ -46,7 +49,9 @@ runPromela file = do
       let tvl_res = runParser TVL.pModel () tvl_file_name tvl_file_contents
       case tvl_res of
          Left err -> putStrLn . ("Error while parsing TVL file(s): \n" ++) . show $ err
-         Right tvl_res -> putStrLn . show $ Cfgs.generateConfigs tvl_res
+         Right tvl_res -> do
+          cfgs <- runErrorT $ Cfgs.generateConfigs tvl_res
+          putStrLn . show $ cfgs
 
 main :: IO ()
 main = do
