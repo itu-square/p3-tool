@@ -62,8 +62,8 @@ generatePresenceConfig T.PShared   _                   = Left "Shared features u
 
 mergeRange' :: [Integer] -> [Config] -> Either String Config
 mergeRange' range cfgs = do
-  subs <- mapM (flip mergeExactly cfgs) range
-  mergeAll subs
+    subs <- mapM (flip mergeExactly cfgs) range
+    return $ Config (Set.unions (map selections subs)) (Set.unions (map allf subs))
 
 mergeRange :: Integer -> (Maybe Integer) -> [Config] -> Either String Config
 mergeRange kmin (Just kmax) cfgs | 0 <= kmin && kmin <= kmax
