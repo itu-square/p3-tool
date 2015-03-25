@@ -10,15 +10,18 @@ import Data.List
 import Data.Maybe
 import Data.SBV
 import qualified Data.Set.Monad as Set
+import qualified Data.Map as Map
 import Data.Generics.Uniplate.Data
+
+import Debug.Trace
 
 type ErrorIO = ErrorT String IO
 
-type Abstraction b = Set.Set Config -> b -> b
+type Abstraction = Set.Set Config -> Predicate -> Predicate
 
 type Features = (String, Set.Set String)
 
-abstractSpec :: Boolean b => Set.Set Config -> Abstraction b -> FP.Spec -> ErrorIO FP.Spec
+abstractSpec :: Set.Set Config -> Abstraction -> FP.Spec -> ErrorIO FP.Spec
 abstractSpec cfgs alpha spec = do
   features <- getFeatures spec
   transformBiM (rewriteFeatureIfs cfgs alpha features) spec
@@ -44,5 +47,61 @@ getFeatures spec = do
         extractFeaturePrefix (FP.Decl Nothing (FP.TUName "features") [FP.IVar name Nothing Nothing]) = Just name
         extractFeaturePrefix _                                          = Nothing
 
-rewriteFeatureIfs :: Boolean b => Set.Set Config -> Abstraction b -> Features -> FP.Stmt -> ErrorIO FP.Stmt
-rewriteFeatureIfs cfgs alpha fs stmt = throwError "undeclared"
+rewriteFeatureIfs :: Set.Set Config -> Abstraction -> Features -> FP.Stmt -> ErrorIO FP.Stmt
+rewriteFeatureIfs cfgs alpha (f, fs) stmt@(FP.StIf opts) | any isStaticVarRef $ universeBi opts = do
+    opts' <- mapM convertOption opts
+    return stmt
+  where isStaticVarRef (FP.VarRef f' _ _) | f == f' = True
+        isStaticVarRef _                            = False
+        convertOption o@((FP.SStmt (FP.StExpr e) Nothing):steps)         = do
+          let env = Set.foldr (\f m -> Map.insert f (forall f) m) Map.empty fs
+          phi <- extractPhi e env
+          return o
+        convertOption o@(FP.SStmt FP.StElse Nothing:steps)              = return o
+        convertOption o                             = throwError ("Unsupported option: " ++ show o)
+        extractPhi :: FP.Expr -> Map.Map String Predicate -> ErrorIO Predicate
+        extractPhi (FP.ELogic e1 "||" e2) m = do
+          phi1 <- extractPhi e1 m
+          phi2 <- extractPhi e2 m
+          return $ do
+            phi1' <- phi1
+            phi2' <- phi2
+            return (phi1' ||| phi2')
+        extractPhi (FP.ELogic e1 "&&" e2) m = do
+          phi1 <- extractPhi e1 m
+          phi2 <- extractPhi e2 m
+          return $ do
+            phi1' <- phi1
+            phi2' <- phi2
+            return (phi1' &&& phi2')
+        extractPhi (FP.EAnyExpr ae) m = extractPhi' ae m
+        extractPhi e m = throwError ("Unsupported expression: " ++ show e)
+        extractPhi' :: FP.AnyExpr -> Map.Map String Predicate -> ErrorIO Predicate
+        extractPhi' (FP.AeBinOp e1 "||" e2) m = do
+          phi1 <- extractPhi' e1 m
+          phi2 <- extractPhi' e2 m
+          return $ do
+            phi1' <- phi1
+            phi2' <- phi2
+            return (phi1' ||| phi2')
+        extractPhi' (FP.AeBinOp e1 "&&" e2) m = do
+          phi1 <- extractPhi' e1 m
+          phi2 <- extractPhi' e2 m
+          return $ do
+            phi1' <- phi1
+            phi2' <- phi2
+            return (phi1' &&& phi2')
+        extractPhi' (FP.AeUnOp "!" e0) m = do
+          phi0 <- extractPhi' e0 m
+          return $ do
+            phi0' <- phi0
+            return (bnot phi0')
+        extractPhi' (FP.AeVarRef (FP.VarRef f' Nothing (Just (FP.VarRef p Nothing Nothing)))) m | f == f' = do
+           let v = Map.lookup p m
+           case v of
+            Nothing -> throwError ("Unknown feature: " ++ p)
+            Just v -> return v
+        extractPhi' e m = throwError ("Unsupported expression: " ++ show e)
+rewriteFeatureIfs cfgs alpha fs stmt =
+  descendM (transformM (rewriteFeatureIfs cfgs alpha fs)) stmt
+

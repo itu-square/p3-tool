@@ -55,7 +55,7 @@ runPromela file = do
           case cfgs of
              Left err -> putStrLn err
              Right cfg -> do
-               spec <- runErrorT $ Trans.abstractSpec cfg (const . const $ (undefined :: Bool)) promela_res
+               spec <- runErrorT $ Trans.abstractSpec cfg (const . const $ undefined) promela_res
                putStrLn . show $ spec
 
 main :: IO ()
