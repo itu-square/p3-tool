@@ -16,7 +16,7 @@ Executable p3-fpromela
   Other-Modules:
     FPromela.Ast, FPromela.Lexer, FPromela.Parser,
     TVL.Ast, TVL.Lexer, TVL.Parser,
-    Transformation.Configurations
+    Transformation.Configurations, Transformation.Transformation
 
   if flag(debug)
     CC-Options: "-DDEBUG"

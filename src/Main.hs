@@ -15,6 +15,7 @@ import FPromela.Parser as FPromela
 import qualified TVL.Parser as TVL
 
 import qualified Transformation.Configurations as Cfgs
+import qualified Transformation.Transformation as Trans
 
 data Main = Main { input :: FilePath }
   deriving (Typeable, Data, Eq)
@@ -51,7 +52,11 @@ runPromela file = do
          Left err -> putStrLn . ("Error while parsing TVL file(s): \n" ++) . show $ err
          Right tvl_res -> do
           cfgs <- runErrorT $ Cfgs.generateConfigs tvl_res
-          putStrLn . show $ cfgs
+          case cfgs of
+             Left err -> putStrLn err
+             Right cfg -> do
+               spec <- runErrorT $ Trans.abstractSpec cfg (const . const $ (undefined :: Bool)) promela_res
+               putStrLn . show $ spec
 
 main :: IO ()
 main = do
