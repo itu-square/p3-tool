@@ -11,6 +11,7 @@ import HSH.ShellEquivs
 import Text.Parsec (runParser)
 
 import FPromela.Parser as FPromela
+import FPromela.Pretty as FPPretty
 
 import qualified TVL.Parser as TVL
 
