@@ -2,9 +2,10 @@ module Transformation.Transformation where
 
 import qualified FPromela.Ast as FP
 
+import Transformation.Common
 import Transformation.Configurations
-
-import Control.Monad.Error
+import Transformation.Formulae
+import Transformation.Abstraction
 
 import Data.List
 import Data.Maybe
@@ -13,11 +14,10 @@ import qualified Data.Set.Monad as Set
 import qualified Data.Map as Map
 import Data.Generics.Uniplate.Data
 
+import Control.Monad
+import Control.Monad.Error
+
 import Debug.Trace
-
-type ErrorIO = ErrorT String IO
-
-type Abstraction = Set.Set Config -> Predicate -> Predicate
 
 type Features = (String, Set.Set String)
 
@@ -54,54 +54,12 @@ rewriteFeatureIfs cfgs alpha (f, fs) stmt@(FP.StIf opts) | any isStaticVarRef $ 
   where isStaticVarRef (FP.VarRef f' _ _) | f == f' = True
         isStaticVarRef _                            = False
         convertOption o@((FP.SStmt (FP.StExpr e) Nothing):steps)         = do
-          let env = Set.foldr (\f m -> Map.insert f (forall f) m) Map.empty fs
-          phi <- extractPhi e env
-          return o
+          phi <- fromFPromelaExpr f e
+          newPhi <- alpha fs cfgs phi
+          let newE = interpretAsFPromelaExpr f newPhi
+          return ((FP.SStmt (FP.StExpr newE) Nothing):steps)
         convertOption o@(FP.SStmt FP.StElse Nothing:steps)              = return o
         convertOption o                             = throwError ("Unsupported option: " ++ show o)
-        extractPhi :: FP.Expr -> Map.Map String Predicate -> ErrorIO Predicate
-        extractPhi (FP.ELogic e1 "||" e2) m = do
-          phi1 <- extractPhi e1 m
-          phi2 <- extractPhi e2 m
-          return $ do
-            phi1' <- phi1
-            phi2' <- phi2
-            return (phi1' ||| phi2')
-        extractPhi (FP.ELogic e1 "&&" e2) m = do
-          phi1 <- extractPhi e1 m
-          phi2 <- extractPhi e2 m
-          return $ do
-            phi1' <- phi1
-            phi2' <- phi2
-            return (phi1' &&& phi2')
-        extractPhi (FP.EAnyExpr ae) m = extractPhi' ae m
-        extractPhi e m = throwError ("Unsupported expression: " ++ show e)
-        extractPhi' :: FP.AnyExpr -> Map.Map String Predicate -> ErrorIO Predicate
-        extractPhi' (FP.AeBinOp e1 "||" e2) m = do
-          phi1 <- extractPhi' e1 m
-          phi2 <- extractPhi' e2 m
-          return $ do
-            phi1' <- phi1
-            phi2' <- phi2
-            return (phi1' ||| phi2')
-        extractPhi' (FP.AeBinOp e1 "&&" e2) m = do
-          phi1 <- extractPhi' e1 m
-          phi2 <- extractPhi' e2 m
-          return $ do
-            phi1' <- phi1
-            phi2' <- phi2
-            return (phi1' &&& phi2')
-        extractPhi' (FP.AeUnOp "!" e0) m = do
-          phi0 <- extractPhi' e0 m
-          return $ do
-            phi0' <- phi0
-            return (bnot phi0')
-        extractPhi' (FP.AeVarRef (FP.VarRef f' Nothing (Just (FP.VarRef p Nothing Nothing)))) m | f == f' = do
-           let v = Map.lookup p m
-           case v of
-            Nothing -> throwError ("Unknown feature: " ++ p)
-            Just v -> return v
-        extractPhi' e m = throwError ("Unsupported expression: " ++ show e)
 rewriteFeatureIfs cfgs alpha fs stmt =
   descendM (transformM (rewriteFeatureIfs cfgs alpha fs)) stmt
 
