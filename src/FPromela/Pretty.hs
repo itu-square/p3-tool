@@ -4,6 +4,10 @@ import FPromela.Ast
 
 import Text.PrettyPrint
 
+niceBraces :: Doc -> Doc
+niceBraces inner = text "{" $+$ inner $+$ text "}"
+
+
 optionally :: (a -> Doc) -> Maybe a -> Doc
 optionally = maybe empty
 
@@ -13,15 +17,15 @@ prettySpec spec = vcat $ punctuate semi (map prettyModule spec)
 prettyModule :: Module -> Doc
 prettyModule (MProcType active name decls prior enab seq) =
   (optionally prettyActive active) <+> text "proctype" <+> text name <+> parens (sep $ punctuate semi (map prettyDecl decls))
-    <+> (optionally prettyPriority prior) <+> (optionally prettyEnabler enab) <+> braces (nest 4 (prettySequence seq))
+    <+> (optionally prettyPriority prior) <+> (optionally prettyEnabler enab) $+$ niceBraces (nest 4 (prettySequence seq))
 prettyModule (MInit prior seq) =
-  text "init" <+> (optionally prettyPriority prior) <+> braces (nest 4 (prettySequence seq))
+  text "init" <+> (optionally prettyPriority prior) $+$ niceBraces (nest 4 (prettySequence seq))
 prettyModule (MNever seq) =
-  text "never" <+> braces (nest 4 (prettySequence seq))
+  text "never" $+$ niceBraces (nest 4 (prettySequence seq))
 prettyModule (MTrace seq) =
-  text "trace" <+> braces (nest 4 (prettySequence seq))
+  text "trace" $+$ niceBraces (nest 4 (prettySequence seq))
 prettyModule (MUType name decls) =
-  text "typedef" <+> text name <+> braces (nest 4 (vcat $ punctuate semi (map prettyDecl decls)))
+  text "typedef" <+> text name $+$ niceBraces (nest 4 (vcat $ punctuate semi (map prettyDecl decls)))
 prettyModule (MDecls decls) =
  vcat $ punctuate semi (map prettyDecl decls)
 
@@ -110,7 +114,70 @@ prettyAssign (AssignExpr var ae) = prettyVarRef var <+> equals <+> prettyAnyExpr
 prettyAssign (AssignIncr var)    = prettyVarRef var <> text "++"
 prettyAssign (AssignDecr var)    = prettyVarRef var <> text "--"
 
-prettyAnyExpr = undefined
-prettyExpr = undefined
-prettyConst = undefined
-prettyStmt = undefined
+prettyStmt :: Stmt -> Doc
+prettyStmt (StIf opts) = text "if" $+$ nest 4 (prettyOptions opts) $+$ text "fi"
+prettyStmt (StDo opts) = text "do" $+$ nest 4 (prettyOptions opts) $+$ text "od"
+prettyStmt (StFor range seq) = text "for" <+> parens (prettyRange range) <+> brackets (nest 4 (prettySequence seq))
+prettyStmt (StAtomic seq) = text "atomic" <+> brackets (nest 4 (prettySequence seq))
+prettyStmt (StDStep seq) = text "d_step" <+> brackets (nest 4 (prettySequence seq)) 
+prettyStmt (StSelect range) =  text "select" <+> parens (prettyRange range)
+prettyStmt (StBlock seq) = brackets (nest 4 (prettySequence seq))
+prettyStmt (StSend send) = prettySend send
+prettyStmt (StReceive recv) = prettyReceive recv
+prettyStmt (StAssign assgn) = prettyAssign assgn
+prettyStmt StElse = text "else"
+prettyStmt StBreak = text "break"
+prettyStmt (StGoto nm) = text "goto" <+> text nm
+prettyStmt (StLabelled nm stmt) = text nm <> colon <+> prettyStmt stmt
+prettyStmt (StPrint str args) = text "print" <+> parens (text str) <> comma <+> (hsep $ punctuate comma (map prettyAnyExpr args))
+prettyStmt (StAssert expr) = text "assert" <+> prettyExpr expr
+prettyStmt (StExpr expr) = prettyExpr expr
+prettyStmt (StCCode _) = text "c_code" <+> brackets (text "...")
+prettyStmt (StCExpr _) = text "c_expr" <+> brackets (text "...")
+prettyStmt (StCDecl _) = text "c_decl" <+> brackets (text "...")
+prettyStmt (StCTrack _ _ _) = text "c_track" <+> brackets (text "...")
+prettyStmt (StCState _ _ _) = text "c_state" <+> brackets (text "...")
+
+prettyRange :: Range -> Doc
+prettyRange (RnInterval var e1 e2) = prettyVarRef var <+> colon <+> prettyExpr e1 <+> text ".." <+> prettyExpr e2
+prettyRange (RnMember var1 var2) = prettyVarRef var1 <+> text "in" <+> prettyVarRef var2
+
+prettyOptions :: Options -> Doc
+prettyOptions opts = vcat $ map printOption opts
+  where printOption (cnd:step:rest) = text "::" <+> prettyStep cnd <+> text "->" <+> prettySequence (step:rest)
+        printOption seq             = text "::" <+> prettySequence seq
+
+prettyAnyExpr :: AnyExpr -> Doc
+prettyAnyExpr (AeBinOp ae1 op ae2) = parens (prettyAnyExpr ae1) <+> text op <+> parens (prettyAnyExpr ae2)
+prettyAnyExpr (AeUnOp  op ae     ) = text op <+> parens (prettyAnyExpr ae)
+prettyAnyExpr (AeTrans ae1 ae2 ae3) = parens (prettyAnyExpr ae1 <+> text "->" <+> prettyAnyExpr ae2 <+> colon <+> prettyAnyExpr ae3)
+prettyAnyExpr (AeLen var) = text "len" <+> parens (prettyVarRef var)
+prettyAnyExpr (AePoll poll) = prettyPoll poll
+prettyAnyExpr (AeVarRef var) = prettyVarRef var
+prettyAnyExpr (AeConst const) = prettyConst const
+prettyAnyExpr AeTimeout = text "timeout"
+prettyAnyExpr AeNp = text "np_"
+prettyAnyExpr (AeEnabled ae) = text "enabled" <+> parens (prettyAnyExpr ae)
+prettyAnyExpr (AePCValue ae) = text "pc_value" <+> parens (prettyAnyExpr ae)
+prettyAnyExpr (AeRemote nm1 ae nm2) = text nm1 <+> brackets (prettyAnyExpr ae) <+> text "@" <+> text nm2
+prettyAnyExpr (AeRun var aes prior) =
+   text "run" <+> prettyVarRef var <+> parens (hsep $ punctuate comma (map prettyAnyExpr aes)) <+> optionally (brackets . prettyPriority) prior
+prettyAnyExpr (AeGetPriority e) = text "get_priority" <+> parens (prettyExpr e)
+prettyAnyExpr (AeSetPriority e1 e2) = text "set_priority" <+> parens (prettyExpr e1 <> comma <+> prettyExpr e2)
+
+prettyExpr :: Expr -> Doc
+prettyExpr (EAnyExpr ae) = prettyAnyExpr ae
+prettyExpr (ELogic e1 op e2) = parens (prettyExpr e1) <+> text op <+> parens (prettyExpr e2)
+prettyExpr (EChanPoll cp var) = prettyChanPoll cp <+> parens (prettyVarRef var)
+
+prettyChanPoll :: ChanPoll -> Doc
+prettyChanPoll CpFull = text "full"
+prettyChanPoll CpEmpty = text "empty"
+prettyChanPoll CpNFull = text "nfull"
+prettyChanPoll CpNEmpty = text "nempty"
+
+prettyConst :: Const -> Doc
+prettyConst CstTrue = text "true"
+prettyConst CstFalse = text "false"
+prettyConst CstSkip = text "skip"
+prettyConst (CstNum num) = integer num

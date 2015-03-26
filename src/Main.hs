@@ -58,7 +58,9 @@ runPromela file = do
              Left err -> putStrLn err
              Right cfg -> do
                spec <- runErrorT $ Trans.abstractSpec cfg Abs.joinAbs promela_res
-               putStrLn . show $ spec
+               case spec of
+                 Left err -> putStrLn err
+                 Right spec -> putStrLn . show . FPPretty.prettySpec $ spec
 
 main :: IO ()
 main = do
