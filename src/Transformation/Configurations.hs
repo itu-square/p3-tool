@@ -1,4 +1,4 @@
-module Transformation.Configurations (Config, generateConfigs) where
+module Transformation.Configurations (Config(..), generateConfigs) where
 
 import qualified TVL.Ast as T
 

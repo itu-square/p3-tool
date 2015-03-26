@@ -5,18 +5,14 @@ import Data.Typeable
 import Data.Data
 import Data.SBV
 import qualified Data.Map as Map
+import qualified Data.Set.Monad as Set
 
 import Control.Monad.Error
 
 import FPromela.Ast as FP
 
 import Transformation.Common
-
-
-
-infixr 6 :&:
-infixr 7 :|:
-infixr 8 :=>:
+import Transformation.Configurations as Cnfgs
 
 data Formula = FVar String
              | FFalse
@@ -25,8 +21,14 @@ data Formula = FVar String
              | Formula :&: Formula
              | Formula :|: Formula
              | Formula :=>: Formula
-     deriving (Eq, Show, Data, Typeable)
+     deriving (Eq, Show, Ord, Data, Typeable)
 
+fromConfig :: Cnfgs.Config -> Formula
+fromConfig (Cnfgs.Config incl excl) =
+  let inclvars = Set.mapMonotonic FVar incl
+      exclvars = Set.mapMonotonic ((:!:) . FVar) excl
+      allvars  = Set.union inclvars exclvars
+  in Set.foldr (:&:) FTrue allvars
 
 fromFPromelaExpr :: Monad m => String -> FP.Expr -> ErrorT String m Formula
 fromFPromelaExpr prefix (FP.ELogic e1 "||" e2) = do
@@ -81,28 +83,28 @@ interpretAsFPromelaExpr prefix phi = FP.EAnyExpr $ interpretAsFPromelaAnyExpr pr
                phiExpr2 = interpretAsFPromelaAnyExpr prefix phi2
            in FP.AeBinOp (FP.AeUnOp "!" phiExpr1) "||" phiExpr2
 
-interpretAsPredicate :: Monad m => Map.Map String Predicate -> Formula -> ErrorT String m Predicate
-interpretAsPredicate env (FVar name) =
+interpretAsSBool :: Monad m => Map.Map String SBool -> Formula -> ErrorT String m SBool
+interpretAsSBool env (FVar name) =
   case Map.lookup name env of
     Nothing  -> throwError ("Unassigned variable " ++ show name)
     (Just p) -> return p
-interpretAsPredicate env FFalse      = return . return $ false
-interpretAsPredicate env FTrue       = return . return $ true
-interpretAsPredicate env ((:!:) phi) = do
-  phip <- interpretAsPredicate env phi
-  return $ liftM bnot phip
-interpretAsPredicate env (phi1 :&: phi2) = do
-  phi1p <- interpretAsPredicate env phi1
-  phi2p <- interpretAsPredicate env phi2
-  return $ liftM2 (&&&) phi1p phi2p
-interpretAsPredicate env (phi1 :|: phi2) = do
-  phi1p <- interpretAsPredicate env phi1
-  phi2p <- interpretAsPredicate env phi2
-  return $ liftM2 (|||) phi1p phi2p
-interpretAsPredicate env (phi1 :=>: phi2) = do
-  phi1p <- interpretAsPredicate env phi1
-  phi2p <- interpretAsPredicate env phi2
-  return $ liftM2 (==>) phi1p phi2p
+interpretAsSBool env FFalse      = return $ false
+interpretAsSBool env FTrue       = return $ true
+interpretAsSBool env ((:!:) phi) = do
+  phip <- interpretAsSBool env phi
+  return $ bnot phip
+interpretAsSBool env (phi1 :&: phi2) = do
+  phi1p <- interpretAsSBool env phi1
+  phi2p <- interpretAsSBool env phi2
+  return $ (phi1p &&& phi2p)
+interpretAsSBool env (phi1 :|: phi2) = do
+  phi1p <- interpretAsSBool env phi1
+  phi2p <- interpretAsSBool env phi2
+  return $ (phi1p ||| phi2p)
+interpretAsSBool env (phi1 :=>: phi2) = do
+  phi1p <- interpretAsSBool env phi1
+  phi2p <- interpretAsSBool env phi2
+  return $ (phi1p ==> phi2p)
 
 interpretAsBool :: Monad m => Map.Map String Bool -> Formula -> ErrorT String m Bool
 interpretAsBool env (FVar name) =

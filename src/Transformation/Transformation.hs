@@ -50,12 +50,12 @@ getFeatures spec = do
 rewriteFeatureIfs :: Set.Set Config -> Abstraction -> Features -> FP.Stmt -> ErrorIO FP.Stmt
 rewriteFeatureIfs cfgs alpha (f, fs) stmt@(FP.StIf opts) | any isStaticVarRef $ universeBi opts = do
     opts' <- mapM convertOption opts
-    return stmt
+    return $ FP.StIf opts'
   where isStaticVarRef (FP.VarRef f' _ _) | f == f' = True
         isStaticVarRef _                            = False
         convertOption o@((FP.SStmt (FP.StExpr e) Nothing):steps)         = do
           phi <- fromFPromelaExpr f e
-          newPhi <- alpha fs cfgs phi
+          newPhi <- alpha cfgs phi
           let newE = interpretAsFPromelaExpr f newPhi
           return ((FP.SStmt (FP.StExpr newE) Nothing):steps)
         convertOption o@(FP.SStmt FP.StElse Nothing:steps)              = return o

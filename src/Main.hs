@@ -16,6 +16,7 @@ import qualified TVL.Parser as TVL
 
 import qualified Transformation.Configurations as Cfgs
 import qualified Transformation.Transformation as Trans
+import qualified Transformation.Abstraction as Abs
 
 data Main = Main { input :: FilePath }
   deriving (Typeable, Data, Eq)
@@ -55,7 +56,7 @@ runPromela file = do
           case cfgs of
              Left err -> putStrLn err
              Right cfg -> do
-               spec <- runErrorT $ Trans.abstractSpec cfg (const . const $ undefined) promela_res
+               spec <- runErrorT $ Trans.abstractSpec cfg Abs.joinAbs promela_res
                putStrLn . show $ spec
 
 main :: IO ()
