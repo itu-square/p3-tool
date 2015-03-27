@@ -12,7 +12,7 @@ optionally :: (a -> Doc) -> Maybe a -> Doc
 optionally = maybe empty
 
 prettySpec :: Spec -> Doc
-prettySpec spec = vcat $ punctuate semi (map prettyModule spec)
+prettySpec spec = vcat $ punctuate (semi $+$ space) (map prettyModule spec)
 
 prettyModule :: Module -> Doc
 prettyModule (MProcType active name decls prior enab seq) =
@@ -27,11 +27,11 @@ prettyModule (MTrace seq) =
 prettyModule (MUType name decls) =
   text "typedef" <+> text name $+$ niceBraces (nest 4 (vcat $ punctuate semi (map prettyDecl decls)))
 prettyModule (MDecls decls) =
- vcat $ punctuate semi (map prettyDecl decls)
+ vcat $ punctuate (semi $+$ space) (map prettyDecl decls)
 
 prettyDecl :: Decl -> Doc
 prettyDecl (Decl vis typ vars) = (optionally prettyVisible vis) <+> prettyType typ <+> hsep (punctuate comma (map prettyIVar vars))
-prettyDecl (MType names)       = text "mtype" <+> equals <+> braces (hsep (punctuate comma (map text names)))
+prettyDecl (MType names)       = text "mtype" <+> equals <+> braces (space <> hsep (punctuate comma (map text names)) <> space)
 
 prettyType :: Type -> Doc
 prettyType TBit = text "bit"
@@ -57,7 +57,7 @@ prettyVisible True = text "show"
 prettyVisible False = text "hidden"
 
 prettySequence :: Sequence -> Doc
-prettySequence steps = sep (punctuate semi (map prettyStep steps))
+prettySequence steps = vcat (punctuate semi (map prettyStep steps))
 
 prettyStep :: Step -> Doc
 prettyStep (SStmt s1 s2) = prettyStmt s1 <+> optionally ((text "unless" <+>) . prettyStmt) s2
@@ -72,13 +72,13 @@ prettyIVar (IVar name const inval) =
         prettyInVal (Right chinit) = prettyChInit chinit
 
 prettyChInit :: ChInit -> Doc
-prettyChInit (ChInit const typs) = brackets (prettyConst const) <+> text "of" <+> braces (sep $ punctuate comma (map prettyType typs))
+prettyChInit (ChInit const typs) = brackets (prettyConst const) <+> text "of" <+> braces (space <> (sep $ punctuate comma (map prettyType typs)) <> space)
 
 prettyVarRef :: VarRef -> Doc
 prettyVarRef (VarRef name ae rest) = text name <> optionally (brackets . prettyAnyExpr) ae <> optionally ((text "." <>) . prettyVarRef) rest
 
 prettySend :: Send -> Doc
-prettySend (Send var sort args) = prettyVarRef var <+> prettySorted sort <+> prettySendArgs args
+prettySend (Send var sort args) = prettyVarRef var <> prettySorted sort <> prettySendArgs args
   where prettySorted False = text "!"
         prettySorted True = text "!!"
 
@@ -87,11 +87,11 @@ prettyRandom False = text "?"
 prettyRandom True  = text "??"
 
 prettyReceive :: Receive -> Doc
-prettyReceive (Receive var rand args) = prettyVarRef var <+> prettyRandom rand <+> prettyReceiveArgs args
-prettyReceive (PollReceive var rand args) = prettyVarRef var <+> prettyRandom rand <+> text "<" <> prettyReceiveArgs args <> text ">"
+prettyReceive (Receive var rand args) = prettyVarRef var <> prettyRandom rand <> prettyReceiveArgs args
+prettyReceive (PollReceive var rand args) = prettyVarRef var <> prettyRandom rand <> text "<" <> prettyReceiveArgs args <> text ">"
 
 prettyPoll :: Poll -> Doc
-prettyPoll (Poll var rand args) = prettyVarRef var <+> prettyRandom rand <+> brackets (prettyReceiveArgs args)
+prettyPoll (Poll var rand args) = prettyVarRef var <> prettyRandom rand <> brackets (prettyReceiveArgs args)
 
 prettySendArgs :: SendArgs -> Doc
 prettySendArgs (SnArgs aes)      = sep $ punctuate comma (map prettyAnyExpr aes)
@@ -130,7 +130,7 @@ prettyStmt StBreak = text "break"
 prettyStmt (StGoto nm) = text "goto" <+> text nm
 prettyStmt (StLabelled nm stmt) = text nm <> colon <+> prettyStmt stmt
 prettyStmt (StPrint str args) = text "print" <+> parens (text str) <> comma <+> (hsep $ punctuate comma (map prettyAnyExpr args))
-prettyStmt (StAssert expr) = text "assert" <+> prettyExpr expr
+prettyStmt (StAssert expr) = text "assert" <+> parens (prettyExpr expr)
 prettyStmt (StExpr expr) = prettyExpr expr
 prettyStmt (StCCode _) = text "c_code" <+> brackets (text "...")
 prettyStmt (StCExpr _) = text "c_expr" <+> brackets (text "...")
