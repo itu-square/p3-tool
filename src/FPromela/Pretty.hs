@@ -117,11 +117,11 @@ prettyAssign (AssignDecr var)    = prettyVarRef var <> text "--"
 prettyStmt :: Stmt -> Doc
 prettyStmt (StIf opts) = text "if" $+$ nest 4 (prettyOptions opts) $+$ text "fi"
 prettyStmt (StDo opts) = text "do" $+$ nest 4 (prettyOptions opts) $+$ text "od"
-prettyStmt (StFor range seq) = text "for" <+> parens (prettyRange range) <+> braces (nest 4 (prettySequence seq))
-prettyStmt (StAtomic seq) = text "atomic" <+> braces (nest 4 (prettySequence seq))
-prettyStmt (StDStep seq) = text "d_step" <+> braces (nest 4 (prettySequence seq)) 
+prettyStmt (StFor range seq) = text "for" <+> parens (prettyRange range) <+> niceBraces (nest 4 (prettySequence seq))
+prettyStmt (StAtomic seq) = text "atomic" <+> niceBraces (nest 4 (prettySequence seq))
+prettyStmt (StDStep seq) = text "d_step" <+> niceBraces (nest 4 (prettySequence seq)) 
 prettyStmt (StSelect range) =  text "select" <+> parens (prettyRange range)
-prettyStmt (StBlock seq) = braces (nest 4 (prettySequence seq))
+prettyStmt (StBlock seq) = niceBraces (nest 4 (prettySequence seq))
 prettyStmt (StSend send) = prettySend send
 prettyStmt (StReceive recv) = prettyReceive recv
 prettyStmt (StAssign assgn) = prettyAssign assgn
