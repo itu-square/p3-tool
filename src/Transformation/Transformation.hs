@@ -17,8 +17,6 @@ import Data.Generics.Uniplate.Data
 import Control.Monad
 import Control.Monad.Except
 
-import Debug.Trace
-
 type Features = (String, Set.Set String)
 
 abstractSpec :: (Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> FP.Spec -> m FP.Spec
@@ -49,17 +47,24 @@ getFeatures spec = do
 
 rewriteFeatureIfs :: (Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> Features -> FP.Stmt -> m FP.Stmt
 rewriteFeatureIfs cfgs alpha (f, fs) stmt@(FP.StIf opts) | any isStaticVarRef $ universeBi opts = do
-    opts' <- mapM convertOption opts
+    phis <- mapM mapOption opts
+    let phis' = map (fixElse phis) phis
+    opts' <- mapM convertOption (zip opts phis')
     return $ FP.StIf opts'
   where isStaticVarRef (FP.VarRef f' _ _) | f == f' = True
         isStaticVarRef _                            = False
-        convertOption o@((FP.SStmt (FP.StExpr e) Nothing):steps)         = do
-          phi <- fromFPromelaExpr f e
-          newPhi <- alpha cfgs phi
-          let newE = interpretAsFPromelaExpr f newPhi
-          return ((FP.SStmt (FP.StExpr newE) Nothing):steps)
-        convertOption o@(FP.SStmt FP.StElse Nothing:steps)              = return o
-        convertOption o                             = throwError ("Unsupported option: " ++ show o)
+        mapOption o@((FP.SStmt (FP.StExpr e) Nothing):_) = do
+            phi <- fromFPromelaExpr f e
+            return $ Just phi
+        mapOption o@((FP.SStmt FP.StElse Nothing):_) = return $ Nothing
+        mapOption o = throwError ("Unsupported option: " ++ show o)
+        fixElse phis Nothing  = foldr (\phi phis' -> (:!:) phi :&: phis') FTrue (catMaybes phis)
+        fixElse phis (Just a) = a
+        convertOption (_:steps, phi) = do
+             newPhi <- alpha cfgs phi
+             let newE = interpretAsFPromelaExpr f newPhi
+             return ((FP.SStmt (FP.StExpr newE) Nothing):steps)
+        convertOption o              = throwError ("Unsupported option: " ++ show o)
 rewriteFeatureIfs cfgs alpha fs stmt =
   descendM (transformM (rewriteFeatureIfs cfgs alpha fs)) stmt
 

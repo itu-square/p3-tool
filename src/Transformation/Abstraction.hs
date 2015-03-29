@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, ViewPatterns #-}
 module Transformation.Abstraction where
 import Data.Foldable
 import qualified Data.Set.Monad as Set
@@ -15,19 +15,23 @@ type Abstraction m = Set.Set Cnfg.Config -> Frm.Formula -> m Frm.Formula
 
 joinAbs :: (Monad m, MonadError String m, MonadIO m) => Abstraction m
 joinAbs cfgs phi = do
-    let features = Set.foldr Set.union Set.empty $ Set.map joinCfg cfgs
-    let completeFrm = Set.foldr (\cfg rest -> (cfg Frm.:=>: phi) Frm.:|: rest) Frm.FFalse $ Set.map Frm.fromConfig cfgs
-    let pred = do fs <- foldrM featureToPred Map.empty features
-                  v <- runExceptT (Frm.interpretAsSBool fs completeFrm)
-                  case v of
-                    Left err -> error err
-                    Right p -> return p
-    tres@(SBV.ThmResult res) <- liftIO $ SBV.prove pred
-    case res of
-      SBV.Satisfiable _ _ -> return Frm.FFalse
-      SBV.Unsatisfiable _ -> return Frm.FTrue
-      _ -> throwError (show tres)
-  where featureToPred f m = do
-          val <- SBV.forall f
-          return $ Map.insert f val m
-        joinCfg (Cnfg.Config incl excl) = Set.union incl excl
+  let features = Set.foldr Set.union Set.empty $ Set.map joinCfg cfgs
+  joinAbs' features cfgs phi
+    where joinAbs' :: (Monad m, MonadError String m, MonadIO m) => Set.Set String -> Abstraction m
+          joinAbs' _ (Set.maxView -> Nothing) phi = return Frm.FFalse
+          joinAbs' features (Set.maxView -> Just (cfg, cfgs')) phi = do
+              let completeFrm = Frm.fromConfig cfg Frm.:=>: phi
+              let pred = do fs <- foldrM featureToPred Map.empty features
+                            v <- runExceptT (Frm.interpretAsSBool fs completeFrm)
+                            case v of
+                              Left err -> error err
+                              Right p -> return p
+              tres@(SBV.ThmResult res) <- liftIO $ SBV.prove pred
+              case res of
+                SBV.Satisfiable _ _ -> joinAbs cfgs' phi
+                SBV.Unsatisfiable _ -> return Frm.FTrue
+                _ -> throwError (show tres)
+          featureToPred f m = do
+            val <- SBV.forall f
+            return $ Map.insert f val m
+          joinCfg (Cnfg.Config incl excl) = Set.union incl excl
