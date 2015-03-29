@@ -117,11 +117,11 @@ prettyAssign (AssignDecr var)    = prettyVarRef var <> text "--"
 prettyStmt :: Stmt -> Doc
 prettyStmt (StIf opts) = text "if" $+$ nest 4 (prettyOptions opts) $+$ text "fi"
 prettyStmt (StDo opts) = text "do" $+$ nest 4 (prettyOptions opts) $+$ text "od"
-prettyStmt (StFor range seq) = text "for" <+> parens (prettyRange range) <+> brackets (nest 4 (prettySequence seq))
-prettyStmt (StAtomic seq) = text "atomic" <+> brackets (nest 4 (prettySequence seq))
-prettyStmt (StDStep seq) = text "d_step" <+> brackets (nest 4 (prettySequence seq)) 
+prettyStmt (StFor range seq) = text "for" <+> parens (prettyRange range) <+> braces (nest 4 (prettySequence seq))
+prettyStmt (StAtomic seq) = text "atomic" <+> braces (nest 4 (prettySequence seq))
+prettyStmt (StDStep seq) = text "d_step" <+> braces (nest 4 (prettySequence seq)) 
 prettyStmt (StSelect range) =  text "select" <+> parens (prettyRange range)
-prettyStmt (StBlock seq) = brackets (nest 4 (prettySequence seq))
+prettyStmt (StBlock seq) = braces (nest 4 (prettySequence seq))
 prettyStmt (StSend send) = prettySend send
 prettyStmt (StReceive recv) = prettyReceive recv
 prettyStmt (StAssign assgn) = prettyAssign assgn
@@ -132,11 +132,11 @@ prettyStmt (StLabelled nm stmt) = text nm <> colon <+> prettyStmt stmt
 prettyStmt (StPrint str args) = text "print" <+> parens (text str) <> comma <+> (hsep $ punctuate comma (map prettyAnyExpr args))
 prettyStmt (StAssert expr) = text "assert" <+> parens (prettyExpr expr)
 prettyStmt (StExpr expr) = prettyExpr expr
-prettyStmt (StCCode _) = text "c_code" <+> brackets (text "...")
-prettyStmt (StCExpr _) = text "c_expr" <+> brackets (text "...")
-prettyStmt (StCDecl _) = text "c_decl" <+> brackets (text "...")
-prettyStmt (StCTrack _ _ _) = text "c_track" <+> brackets (text "...")
-prettyStmt (StCState _ _ _) = text "c_state" <+> brackets (text "...")
+prettyStmt (StCCode _) = text "c_code" <+> braces (text "...")
+prettyStmt (StCExpr _) = text "c_expr" <+> braces (text "...")
+prettyStmt (StCDecl _) = text "c_decl" <+> braces (text "...")
+prettyStmt (StCTrack _ _ _) = text "c_track" <+> braces (text "...")
+prettyStmt (StCState _ _ _) = text "c_state" <+> braces (text "...")
 
 prettyRange :: Range -> Doc
 prettyRange (RnInterval var e1 e2) = prettyVarRef var <+> colon <+> prettyExpr e1 <+> text ".." <+> prettyExpr e2
