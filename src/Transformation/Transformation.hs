@@ -1,8 +1,8 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Transformation.Transformation where
 
 import qualified FPromela.Ast as FP
 
-import Transformation.Common
 import Transformation.Configurations
 import Transformation.Formulae
 import Transformation.Abstraction
@@ -15,18 +15,18 @@ import qualified Data.Map as Map
 import Data.Generics.Uniplate.Data
 
 import Control.Monad
-import Control.Monad.Error
+import Control.Monad.Except
 
 import Debug.Trace
 
 type Features = (String, Set.Set String)
 
-abstractSpec :: Set.Set Config -> Abstraction -> FP.Spec -> ErrorIO FP.Spec
+abstractSpec :: (Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> FP.Spec -> m FP.Spec
 abstractSpec cfgs alpha spec = do
   features <- getFeatures spec
   transformBiM (rewriteFeatureIfs cfgs alpha features) spec
 
-getFeatures :: FP.Spec -> ErrorIO Features
+getFeatures :: (Monad m, MonadError String m, MonadIO m) => FP.Spec -> m Features
 getFeatures spec = do
     let featureDecls = filter isFeaturesDecl $ universeBi spec
     when (length featureDecls <= 0) $ throwError "No features declaration found"
@@ -47,7 +47,7 @@ getFeatures spec = do
         extractFeaturePrefix (FP.Decl Nothing (FP.TUName "features") [FP.IVar name Nothing Nothing]) = Just name
         extractFeaturePrefix _                                          = Nothing
 
-rewriteFeatureIfs :: Set.Set Config -> Abstraction -> Features -> FP.Stmt -> ErrorIO FP.Stmt
+rewriteFeatureIfs :: (Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> Features -> FP.Stmt -> m FP.Stmt
 rewriteFeatureIfs cfgs alpha (f, fs) stmt@(FP.StIf opts) | any isStaticVarRef $ universeBi opts = do
     opts' <- mapM convertOption opts
     return $ FP.StIf opts'

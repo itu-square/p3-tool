@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleContexts #-}
 module Transformation.Formulae where
 
 import Data.Typeable
@@ -7,11 +7,10 @@ import Data.SBV
 import qualified Data.Map as Map
 import qualified Data.Set.Monad as Set
 
-import Control.Monad.Error
+import Control.Monad.Except
 
 import FPromela.Ast as FP
 
-import Transformation.Common
 import Transformation.Configurations as Cnfgs
 
 data Formula = FVar String
@@ -30,7 +29,7 @@ fromConfig (Cnfgs.Config incl excl) =
       allvars  = Set.union inclvars exclvars
   in Set.foldr (:&:) FTrue allvars
 
-fromFPromelaExpr :: Monad m => String -> FP.Expr -> ErrorT String m Formula
+fromFPromelaExpr :: (Monad m, MonadError String m) => String -> FP.Expr -> m Formula
 fromFPromelaExpr prefix (FP.ELogic e1 "||" e2) = do
   phi1 <- fromFPromelaExpr prefix e1
   phi2 <- fromFPromelaExpr prefix e2
@@ -83,7 +82,7 @@ interpretAsFPromelaExpr prefix phi = FP.EAnyExpr $ interpretAsFPromelaAnyExpr pr
                phiExpr2 = interpretAsFPromelaAnyExpr prefix phi2
            in FP.AeBinOp (FP.AeUnOp "!" phiExpr1) "||" phiExpr2
 
-interpretAsSBool :: Monad m => Map.Map String SBool -> Formula -> ErrorT String m SBool
+interpretAsSBool :: (Monad m, MonadError String m) => Map.Map String SBool -> Formula -> m SBool
 interpretAsSBool env (FVar name) =
   case Map.lookup name env of
     Nothing  -> throwError ("Unassigned variable " ++ show name)
@@ -106,7 +105,7 @@ interpretAsSBool env (phi1 :=>: phi2) = do
   phi2p <- interpretAsSBool env phi2
   return $ (phi1p ==> phi2p)
 
-interpretAsBool :: Monad m => Map.Map String Bool -> Formula -> ErrorT String m Bool
+interpretAsBool :: (Monad m, MonadError String m) => Map.Map String Bool -> Formula -> m Bool
 interpretAsBool env (FVar name) =
   case Map.lookup name env of
     Nothing  -> throwError ("Unassigned variable " ++ show name)

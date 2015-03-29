@@ -2,7 +2,7 @@
 module Main where
 
 import Control.Monad
-import Control.Monad.Error
+import Control.Monad.Except
 
 
 import System.Console.CmdLib
@@ -53,11 +53,11 @@ runPromela file = do
       case tvl_res of
          Left err -> putStrLn . ("Error while parsing TVL file(s): \n" ++) . show $ err
          Right tvl_res -> do
-          cfgs <- runErrorT $ Cfgs.generateConfigs tvl_res
+          cfgs <- runExceptT $ Cfgs.generateConfigs tvl_res
           case cfgs of
              Left err -> putStrLn err
              Right cfg -> do
-               spec <- runErrorT $ Trans.abstractSpec cfg Abs.joinAbs promela_res
+               spec <- runExceptT $ Trans.abstractSpec cfg Abs.joinAbs promela_res
                case spec of
                  Left err -> putStrLn err
                  Right spec -> putStrLn . show . FPPretty.prettySpec $ spec

@@ -1,28 +1,28 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Transformation.Abstraction where
 import Data.Foldable
 import qualified Data.Set.Monad as Set
 import qualified Data.Map as Map
-import qualified Transformation.Common as Cmn
 import qualified Transformation.Configurations as Cnfg
 import qualified Transformation.Formulae as Frm
 
 import qualified Data.SBV as SBV
 
 import Control.Monad
-import Control.Monad.Error
+import Control.Monad.Except
 
-type Abstraction = Set.Set Cnfg.Config -> Frm.Formula -> Cmn.ErrorIO Frm.Formula
+type Abstraction m = Set.Set Cnfg.Config -> Frm.Formula -> m Frm.Formula
 
-joinAbs :: Abstraction
+joinAbs :: (Monad m, MonadError String m, MonadIO m) => Abstraction m
 joinAbs cfgs phi = do
     let features = Set.foldr Set.union Set.empty $ Set.map joinCfg cfgs
     let completeFrm = Set.foldr (\cfg rest -> (cfg Frm.:=>: phi) Frm.:|: rest) Frm.FFalse $ Set.map Frm.fromConfig cfgs
     let pred = do fs <- foldrM featureToPred Map.empty features
-                  v <- runErrorT (Frm.interpretAsSBool fs completeFrm)
+                  v <- runExceptT (Frm.interpretAsSBool fs completeFrm)
                   case v of
                     Left err -> error err
                     Right p -> return p
-    tres@(SBV.ThmResult res) <- lift $ SBV.prove pred
+    tres@(SBV.ThmResult res) <- liftIO $ SBV.prove pred
     case res of
       SBV.Satisfiable _ _ -> return Frm.FFalse
       SBV.Unsatisfiable _ -> return Frm.FTrue

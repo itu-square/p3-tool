@@ -10,13 +10,13 @@ Flag Debug
   Default:     False
 
 Executable p3-fpromela
-  Build-Depends: base, parsec, pretty, containers, mtl, set-monad, uniplate, language-c, cmdlib, HSH, sbv
+  Build-Depends: base, parsec, pretty, containers, mtl>=2.2, set-monad, uniplate, language-c, cmdlib, HSH, sbv
   Main-Is: Main.hs
   Hs-Source-Dirs: src
   Other-Modules:
     FPromela.Ast, FPromela.Lexer, FPromela.Parser, FPromela.Pretty,
     TVL.Ast, TVL.Lexer, TVL.Parser,
-    Transformation.Common, Transformation.Configurations, Transformation.Formulae, Transformation.Abstraction, Transformation.Transformation
+    Transformation.Configurations, Transformation.Formulae, Transformation.Abstraction, Transformation.Transformation
 
   if flag(debug)
     CC-Options: "-DDEBUG"
