@@ -3,6 +3,9 @@ module Main where
 
 import Control.Monad
 import Control.Monad.Except
+import Control.Monad.State
+
+import qualified Data.Set.Monad as Set
 
 
 import System.Console.CmdLib
@@ -57,10 +60,10 @@ runPromela file = do
           case cfgs of
              Left err -> putStrLn err
              Right cfg -> do
-               spec <- runExceptT $ Trans.abstractSpec cfg Abs.joinAbs promela_res
+               spec <- runExceptT $ runStateT (Trans.abstractSpec Abs.joinAbs promela_res) (cfg, Set.empty)
                case spec of
                  Left err -> putStrLn err
-                 Right spec -> putStrLn . show . FPPretty.prettySpec $ spec
+                 Right (spec, _) -> putStrLn . show . FPPretty.prettySpec $ spec
 
 main :: IO ()
 main = do

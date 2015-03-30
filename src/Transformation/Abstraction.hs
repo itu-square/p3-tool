@@ -11,15 +11,17 @@ import qualified Data.SBV as SBV
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Except
+import Control.Monad.State
 
-type AbstractionMonad m = (Functor m, Applicative m, Monad m, MonadError String m, MonadIO m)
-type Abstraction m = Set.Set Cnfg.Config -> Frm.Formula -> m Frm.Formula
+type AbstractionMonad m = (Functor m, Applicative m, Monad m, MonadError String m, MonadIO m, MonadState (Set.Set Cnfg.Config, Set.Set String) m)
+type Abstraction m = Frm.Formula -> m Frm.Formula
 
 joinAbs :: AbstractionMonad m => Abstraction m
-joinAbs cfgs phi = do
+joinAbs phi = do
+  (cfgs, _) <- get
   let features = Set.foldr Set.union Set.empty $ Set.map joinCfg cfgs
   joinAbs' features cfgs phi
-    where joinAbs' :: AbstractionMonad m => Set.Set String -> Abstraction m
+    where joinAbs' :: AbstractionMonad m => Set.Set String -> Set.Set Cnfg.Config -> Abstraction m
           joinAbs' _ (Set.maxView -> Nothing) phi = return Frm.FFalse
           joinAbs' features (Set.maxView -> Just (cfg, cfgs')) phi = do
               let completeFrm = Frm.fromConfig cfg Frm.:=>: phi
@@ -30,7 +32,7 @@ joinAbs cfgs phi = do
                               Right p -> return p
               tres@(SBV.ThmResult res) <- liftIO $ SBV.prove pred
               case res of
-                SBV.Satisfiable _ _ -> joinAbs cfgs' phi
+                SBV.Satisfiable _ _ -> joinAbs' features cfgs' phi
                 SBV.Unsatisfiable _ -> return Frm.FTrue
                 _ -> throwError (show tres)
           featureToPred f m = do
