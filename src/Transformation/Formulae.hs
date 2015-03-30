@@ -22,6 +22,10 @@ data Formula = FVar String
              | Formula :=>: Formula
      deriving (Eq, Show, Ord, Data, Typeable)
 
+fromBool :: Bool -> Formula
+fromBool True = FTrue
+fromBool False = FFalse
+
 fromConfig :: Cnfgs.Config -> Formula
 fromConfig (Cnfgs.Config incl excl) =
   let inclvars = Set.mapMonotonic FVar incl
