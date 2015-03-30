@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, ConstraintKinds #-}
 module Transformation.Transformation where
 
 import qualified FPromela.Ast as FP
@@ -20,12 +20,12 @@ import Control.Monad.Except
 
 type Features = (String, Set.Set String)
 
-abstractSpec :: (Functor m, Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> FP.Spec -> m FP.Spec
+abstractSpec :: AbstractionMonad m => Set.Set Config -> Abstraction m -> FP.Spec -> m FP.Spec
 abstractSpec cfgs alpha spec = do
   features <- getFeatures spec
   transformBiM (rewriteFeatureBranches cfgs alpha features) spec
 
-getFeatures :: (Monad m, MonadError String m, MonadIO m) => FP.Spec -> m Features
+getFeatures :: AbstractionMonad m => FP.Spec -> m Features
 getFeatures spec = do
     let featureDecls = filter isFeaturesDecl $ universeBi spec
     when (length featureDecls <= 0) $ throwError "No features declaration found"
@@ -46,13 +46,13 @@ getFeatures spec = do
         extractFeaturePrefix (FP.Decl Nothing (FP.TUName "features") [FP.IVar name Nothing Nothing]) = Just name
         extractFeaturePrefix _                                          = Nothing
 
-rewriteFeatureBranches :: (Functor m, Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> Features -> FP.Stmt -> m FP.Stmt
+rewriteFeatureBranches :: AbstractionMonad m => Set.Set Config -> Abstraction m -> Features -> FP.Stmt -> m FP.Stmt
 rewriteFeatureBranches cfgs alpha (f, fs) stmt@(FP.StIf opts) = FP.StIf <$> rewriteFeatureOpts cfgs alpha (f, fs) opts
 rewriteFeatureBranches cfgs alpha (f, fs) stmt@(FP.StDo opts) = FP.StDo <$> rewriteFeatureOpts cfgs alpha (f, fs) opts
 rewriteFeatureBranches cfgs alpha fs stmt =
   descendM (transformM (rewriteFeatureBranches cfgs alpha fs)) stmt
 
-rewriteFeatureOpts :: (Functor m, Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> Features -> FP.Options -> m FP.Options
+rewriteFeatureOpts :: AbstractionMonad m => Set.Set Config -> Abstraction m -> Features -> FP.Options -> m FP.Options
 rewriteFeatureOpts cfgs alpha (f, fs) opts | any hasStaticVarRef opts = do
     phis <- mapM mapOption opts
     let phis' = map (fixElse phis) phis

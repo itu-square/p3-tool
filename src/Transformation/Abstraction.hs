@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts, ViewPatterns, ConstraintKinds #-}
 module Transformation.Abstraction where
 import Data.Foldable
 import qualified Data.Set.Monad as Set
@@ -8,16 +8,18 @@ import qualified Transformation.Formulae as Frm
 
 import qualified Data.SBV as SBV
 
+import Control.Applicative
 import Control.Monad
 import Control.Monad.Except
 
+type AbstractionMonad m = (Functor m, Applicative m, Monad m, MonadError String m, MonadIO m)
 type Abstraction m = Set.Set Cnfg.Config -> Frm.Formula -> m Frm.Formula
 
-joinAbs :: (Monad m, MonadError String m, MonadIO m) => Abstraction m
+joinAbs :: AbstractionMonad m => Abstraction m
 joinAbs cfgs phi = do
   let features = Set.foldr Set.union Set.empty $ Set.map joinCfg cfgs
   joinAbs' features cfgs phi
-    where joinAbs' :: (Monad m, MonadError String m, MonadIO m) => Set.Set String -> Abstraction m
+    where joinAbs' :: AbstractionMonad m => Set.Set String -> Abstraction m
           joinAbs' _ (Set.maxView -> Nothing) phi = return Frm.FFalse
           joinAbs' features (Set.maxView -> Just (cfg, cfgs')) phi = do
               let completeFrm = Frm.fromConfig cfg Frm.:=>: phi
