@@ -14,15 +14,16 @@ import qualified Data.Set.Monad as Set
 import qualified Data.Map as Map
 import Data.Generics.Uniplate.Data
 
+import Control.Applicative
 import Control.Monad
 import Control.Monad.Except
 
 type Features = (String, Set.Set String)
 
-abstractSpec :: (Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> FP.Spec -> m FP.Spec
+abstractSpec :: (Functor m, Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> FP.Spec -> m FP.Spec
 abstractSpec cfgs alpha spec = do
   features <- getFeatures spec
-  transformBiM (rewriteFeatureIfs cfgs alpha features) spec
+  transformBiM (rewriteFeatureBranches cfgs alpha features) spec
 
 getFeatures :: (Monad m, MonadError String m, MonadIO m) => FP.Spec -> m Features
 getFeatures spec = do
@@ -45,13 +46,20 @@ getFeatures spec = do
         extractFeaturePrefix (FP.Decl Nothing (FP.TUName "features") [FP.IVar name Nothing Nothing]) = Just name
         extractFeaturePrefix _                                          = Nothing
 
-rewriteFeatureIfs :: (Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> Features -> FP.Stmt -> m FP.Stmt
-rewriteFeatureIfs cfgs alpha (f, fs) stmt@(FP.StIf opts) | any isStaticVarRef $ universeBi opts = do
+rewriteFeatureBranches :: (Functor m, Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> Features -> FP.Stmt -> m FP.Stmt
+rewriteFeatureBranches cfgs alpha (f, fs) stmt@(FP.StIf opts) = FP.StIf <$> rewriteFeatureOpts cfgs alpha (f, fs) opts
+rewriteFeatureBranches cfgs alpha (f, fs) stmt@(FP.StDo opts) = FP.StDo <$> rewriteFeatureOpts cfgs alpha (f, fs) opts
+rewriteFeatureBranches cfgs alpha fs stmt =
+  descendM (transformM (rewriteFeatureBranches cfgs alpha fs)) stmt
+
+rewriteFeatureOpts :: (Functor m, Monad m, MonadError String m, MonadIO m) => Set.Set Config -> Abstraction m -> Features -> FP.Options -> m FP.Options
+rewriteFeatureOpts cfgs alpha (f, fs) opts | any hasStaticVarRef opts = do
     phis <- mapM mapOption opts
     let phis' = map (fixElse phis) phis
-    opts' <- mapM convertOption (zip opts phis')
-    return $ FP.StIf opts'
-  where isStaticVarRef (FP.VarRef f' _ _) | f == f' = True
+    mapM convertOption (zip opts phis')
+  where hasStaticVarRef (FP.SStmt (FP.StExpr e) _ : _) = any isStaticVarRef $ childrenBi e
+        hasStaticVarRef _ = False
+        isStaticVarRef (FP.VarRef f' _ _) | f == f' = True
         isStaticVarRef _                            = False
         mapOption o@((FP.SStmt (FP.StExpr e) Nothing):_) = do
             phi <- fromFPromelaExpr f e
@@ -65,6 +73,4 @@ rewriteFeatureIfs cfgs alpha (f, fs) stmt@(FP.StIf opts) | any isStaticVarRef $ 
              let newE = interpretAsFPromelaExpr f newPhi
              return ((FP.SStmt (FP.StExpr newE) Nothing):steps)
         convertOption o              = throwError ("Unsupported option: " ++ show o)
-rewriteFeatureIfs cfgs alpha fs stmt =
-  descendM (transformM (rewriteFeatureIfs cfgs alpha fs)) stmt
-
+rewriteFeatureOpts cfgs alpha fs o = transformBiM (rewriteFeatureBranches cfgs alpha fs) o
