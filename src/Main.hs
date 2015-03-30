@@ -5,7 +5,7 @@ import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
 
-import qualified Data.Set.Monad as Set
+import Data.Map.Strict as Map
 
 
 import System.Console.CmdLib
@@ -60,7 +60,7 @@ runPromela file = do
           case cfgs of
              Left err -> putStrLn err
              Right cfg -> do
-               spec <- runExceptT $ runStateT (Trans.abstractSpec Abs.joinAbs promela_res) (cfg, Set.empty)
+               spec <- runExceptT $ runStateT (Trans.abstractSpec Abs.joinAbs promela_res) (cfg, Map.empty)
                case spec of
                  Left err -> putStrLn err
                  Right (spec, _) -> putStrLn . show . FPPretty.prettySpec $ spec

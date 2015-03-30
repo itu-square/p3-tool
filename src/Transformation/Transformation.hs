@@ -11,7 +11,7 @@ import Data.List
 import Data.Maybe
 import Data.SBV
 import qualified Data.Set.Monad as Set
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Generics.Uniplate.Data
 
 import Control.Applicative

@@ -4,8 +4,9 @@ module Transformation.Formulae where
 import Data.Typeable
 import Data.Data
 import Data.SBV
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Set.Monad as Set
+import Data.Generics.Uniplate.Data
 
 import Control.Monad.Except
 
@@ -131,3 +132,11 @@ interpretAsBool env (phi1 :=>: phi2) = do
   phi1p <- interpretAsBool env phi1
   phi2p <- interpretAsBool env phi2
   return (phi1p ==> phi2p)
+
+graft :: Map.Map String Formula -> Formula -> Formula
+graft env (FVar name) =
+  case Map.lookup name env of
+    Nothing -> FVar name
+    Just val -> val
+graft env phi =
+  descend (transform $ graft env) phi
