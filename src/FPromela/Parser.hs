@@ -34,7 +34,7 @@ many1M :: Parser st (Maybe a) -> Parser st [a]
 many1M p = catMaybes <$> many1 p
 
 pSpec :: Parser ParserState Spec
-pSpec = whiteSpace *> many1M ((pModule >>= return . Just) <|> (symbol ";" *> return Nothing)) <* eof
+pSpec = whiteSpace *> many1M ((pModule >>= return . Just) <|> (many1 semi *> return Nothing)) <* eof
       <?> "specification"
 
 pModule :: Parser ParserState Module
@@ -44,7 +44,7 @@ pModule =   pProctype
         <|> pTrace
         <|> pUtype
         <|> (MDecls <$> pDecls)
-        <|> pPreprocessor
+        -- <|> pPreprocessor
         <?> "module"
 
 pProctype :: Parser ParserState Module
@@ -95,7 +95,7 @@ pMtype = do
 
 pDecls :: Parser ParserState [Decl]
 pDecls = do d1 <- pDecl
-            ds <- option [] (symbol ";" *> option [] pDecls)
+            ds <- option [] (many1 semi *> option [] pDecls)
             return $ d1 : ds
 
 pDecl :: Parser ParserState Decl
@@ -110,8 +110,7 @@ pPreprocessor :: Parser ParserState Module
 pPreprocessor = do
   symbol "#"
   name <- identifier
-  rest <- manyTill anyChar newline
-  spaces
+  rest <- lexeme (concat <$> manyTill (symbol "\\" <|> ((: []) <$> anyChar)) newline)
   return $ MPreprocessor name rest
 
 pType :: Parser ParserState Type
@@ -386,4 +385,4 @@ pConst =   (reserved "true" *> return CstTrue)
        <|> (natural >>= return . CstNum)
 
 pSeparator :: Parser ParserState ()
-pSeparator = (semi <|> symbol "->") *> return ()
+pSeparator = (many1 semi *> return ()) <|> (symbol "->" *> return ())

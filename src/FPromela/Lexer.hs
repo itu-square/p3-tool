@@ -13,7 +13,7 @@ promelaDef = emptyDef {
   Tok.commentLine    = "//",
   Tok.nestedComments = False,
   Tok.reservedNames  = ["proctype", "init", "never",
-                        "trace", "mtype",
+                        "trace", "mtype", "typedef",
                         "bit", "bool", "byte", "short", "int", "chan",
                         "active", "priority", "provided", "hidden", "show",
                         "unless", "xr", "xs",
