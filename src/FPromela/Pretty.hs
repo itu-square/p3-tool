@@ -12,22 +12,24 @@ optionally :: (a -> Doc) -> Maybe a -> Doc
 optionally = maybe empty
 
 prettySpec :: Spec -> Doc
-prettySpec spec = vcat $ punctuate (semi $+$ space) (map prettyModule spec)
+prettySpec spec = vcat $ map prettyModule spec
 
 prettyModule :: Module -> Doc
 prettyModule (MProcType active name decls prior enab seq) =
   (optionally prettyActive active) <+> text "proctype" <+> text name <+> parens (sep $ punctuate semi (map prettyDecl decls))
-    <+> (optionally prettyPriority prior) <+> (optionally prettyEnabler enab) $+$ niceBraces (nest 4 (prettySequence seq))
+    <+> (optionally prettyPriority prior) <+> (optionally prettyEnabler enab) $+$ niceBraces (nest 4 (prettySequence seq)) <> semi $+$ space
 prettyModule (MInit prior seq) =
-  text "init" <+> (optionally prettyPriority prior) $+$ niceBraces (nest 4 (prettySequence seq))
+  text "init" <+> (optionally prettyPriority prior) $+$ niceBraces (nest 4 (prettySequence seq)) <> semi $+$ space
 prettyModule (MNever seq) =
-  text "never" $+$ niceBraces (nest 4 (prettySequence seq))
+  text "never" $+$ niceBraces (nest 4 (prettySequence seq)) <> semi $+$ space
 prettyModule (MTrace seq) =
-  text "trace" $+$ niceBraces (nest 4 (prettySequence seq))
+  text "trace" $+$ niceBraces (nest 4 (prettySequence seq)) <> semi $+$ space
 prettyModule (MUType name decls) =
-  text "typedef" <+> text name $+$ niceBraces (nest 4 (vcat $ punctuate semi (map prettyDecl decls)))
+  text "typedef" <+> text name $+$ niceBraces (nest 4 (vcat $ punctuate semi (map prettyDecl decls))) <> semi $+$ space
 prettyModule (MDecls decls) =
- vcat $ punctuate (semi $+$ space) (map prettyDecl decls)
+ (vcat $ punctuate (semi $+$ space) (map prettyDecl decls)) <> semi $+$ space
+prettyModule (MPreprocessor name rest) =
+  text "#" <> text name <+> text rest $+$ space
 
 prettyDecl :: Decl -> Doc
 prettyDecl (Decl vis typ vars) = (optionally prettyVisible vis) <+> prettyType typ <+> hsep (punctuate comma (map prettyIVar vars))

@@ -43,6 +43,7 @@ data Module = MProcType (Maybe Active) Name [Decl] (Maybe Priority) (Maybe Enabl
             | MTrace Sequence
             | MUType Name [Decl]
             | MDecls [Decl]
+            | MPreprocessor Name String
             deriving (Eq, Show, Data, Typeable)
 
 {-

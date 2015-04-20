@@ -44,6 +44,7 @@ pModule =   pProctype
         <|> pTrace
         <|> pUtype
         <|> (MDecls <$> pDecls)
+        <|> pPreprocessor
         <?> "module"
 
 pProctype :: Parser ParserState Module
@@ -103,6 +104,15 @@ pDecl = (do visible <- optionMaybe pVisible
             ivars <- commaSep1 pIvar
             return $ Decl visible typ ivars)
      <|> pMtype
+
+
+pPreprocessor :: Parser ParserState Module
+pPreprocessor = do
+  symbol "#"
+  name <- identifier
+  rest <- manyTill anyChar newline
+  spaces
+  return $ MPreprocessor name rest
 
 pType :: Parser ParserState Type
 pType =   (reserved "bit" *> return TBit)
@@ -377,4 +387,3 @@ pConst =   (reserved "true" *> return CstTrue)
 
 pSeparator :: Parser ParserState ()
 pSeparator = (semi <|> symbol "->") *> return ()
-
