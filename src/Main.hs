@@ -17,6 +17,7 @@ import FPromela.Parser as FPromela
 import FPromela.Pretty as FPPretty
 
 import qualified TVL.Parser as TVL
+import qualified TVL.Pretty as TVLPretty
 
 import qualified Transformation.Configurations as Cfgs
 import qualified Transformation.Transformation as Trans

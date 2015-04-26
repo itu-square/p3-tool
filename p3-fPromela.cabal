@@ -15,7 +15,7 @@ Executable p3-fpromela
   Hs-Source-Dirs: src
   Other-Modules:
     FPromela.Ast, FPromela.Lexer, FPromela.Parser, FPromela.Pretty,
-    TVL.Ast, TVL.Lexer, TVL.Parser,
+    TVL.Ast, TVL.Lexer, TVL.Parser, TVL.Pretty,
     Transformation.Configurations, Transformation.Formulae, Transformation.Abstraction, Transformation.Transformation
 
   if flag(debug)
