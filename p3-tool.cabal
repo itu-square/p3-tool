@@ -24,3 +24,11 @@ Executable p3-fpromela
   if flag(debug)
     CC-Options: "-DDEBUG"
     CPP-Options: -DDEBUG
+
+Executable p3-spin
+  Build-Depends: p3-tool, base, containers, set-monad, mtl>=2.2, parsec, process, cmdlib, HSH, filepath, temporary
+  Hs-Source-Dirs: p3-spin
+  Main-Is: Main.hs
+  if flag(debug)
+    CC-Options: "-DDEBUG"
+    CPP-Options: -DDEBUG

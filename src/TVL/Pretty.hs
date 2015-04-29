@@ -70,7 +70,7 @@ prettyAttributeDecl (AttrComplex tn vn sattrs) = text tn <+> text vn <+> (vcat $
 
 prettyAttributeBody :: AttributeBody -> Doc
 prettyAttributeBody (AbIs e) = text "is" <+> prettyExpr e
-prettyAttributeBody (AbIn se ac) = text "in" <+> prettyExpr se <+> maybe empty ((comma <+>) . prettyAttributeConditional) ac
+prettyAttributeBody (AbIn se ac) = text "in" <+> prettySetExpr se <+> maybe empty ((comma <+>) . prettyAttributeConditional) ac
 prettyAttributeBody (AbCond ac) = prettyAttributeConditional ac
 
 prettyAttributeValue :: AttributeValue -> Doc
@@ -98,8 +98,8 @@ prettyExpr (InSet e se) = parens (prettyExpr e) <+> text "in" <+> prettySetExpr 
 prettyExpr (EAbs e) = text "abs" <+> parens (prettyExpr e)
 prettyExpr (Exclusion nm1 nm2) = text nm1 <+> text "excludes" <+> text nm2
 prettyExpr (Dependency nm1 nm2) = text nm1 <+> text "requires" <+> text nm2
-prettyExpr (BuiltinFun nm (Left es)) = text nm <+> parens (cat $ punctuate comma (m)) prettyExpr es))
-prettyExpr (BuiltinFun nm (Right cid)) = text nm <+> parens (prettyChildrenId cid))
+prettyExpr (BuiltinFun nm (Left es)) = text nm <+> parens (cat $ punctuate comma (map prettyExpr es))
+prettyExpr (BuiltinFun nm (Right cid)) = text nm <+> parens (prettyChildrenId cid)
 prettyExpr (Ternary e1 e2 e3) = parens (prettyExpr e1) <+> text "?" <+> parens (prettyExpr e2) <+> colon <+> parens (prettyExpr e3)
 
 prettySetExpr :: SetExpr -> Doc
@@ -116,4 +116,4 @@ prettyChildren ChdAll = text "children"
 prettyChildren ChdSelected = text "selectedchildren"
 
 prettyChildrenId :: ChildrenId -> Doc
-prettyChildrenId (ChdId chd nm) = prettyChildren chd <> dot <> text nm
+prettyChildrenId (ChdId chd nm) = prettyChildren chd <> text "." <> text nm
