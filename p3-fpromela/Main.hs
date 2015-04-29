@@ -47,7 +47,6 @@ runPromela file = do
   let promela_file_name = head promela_files
   let tvl_file_name = head tvl_files
   promela_file_contents <- C.run $ ("cpp", ["-w", promela_file_name]) C.-|- ("sed", ["/^\\#/d"])
-  --promela_file_contents <- readFile promela_file_name
   let promela_res = runParser FPromela.pSpec emptyParserState promela_file_name promela_file_contents
   case promela_res of
     Left err -> putStrLn . ("Error while parsing promela file(s): \n" ++) . show $ err
