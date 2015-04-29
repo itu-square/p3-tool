@@ -49,7 +49,7 @@ data SimpleTypeDecl = TIntScalar Name
               | ID ID ";"
 -}
 data RecordField = FSimple SimpleTypeDecl
-                 | FReference String String
+                 | FReference Name Name
                  deriving (Eq, Show, Data, Typeable)
 
 {-
