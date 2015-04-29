@@ -54,11 +54,12 @@ runWithStdErr e args = do
       std_out = CreatePipe,
       std_err = CreatePipe
   }
-  (_, Just hout, Just herr, _) <- createProcess p
+  (_, Just hout, Just herr, ph) <- createProcess p
   !sout <- hGetContents hout
   !serr <- hGetContents herr
   hClose hout
   hClose herr
+  !_ <- waitForProcess ph
   return (sout, serr)
 
 runSpin :: FilePath -> IO ()
@@ -96,11 +97,11 @@ runSpin file = do
                        cd path
                        let specfile = "out.pml"
                        writeFile specfile $ (show . FPPretty.prettySpec) spec
-                       (sout, serr) <- runWithStdErr "/usr/bin/time" ["-p", "spin", "-a", specfile]
+                       !(sout, serr) <- runWithStdErr "/usr/bin/time" ["-p", "spin", "-a", specfile]
                        let ["real", rt , "user", ut, "sys", st] = words serr
                        let spintime = fst . head $ readSigned readFloat ut :: Rational
-                       (sout, serr) <- runWithStdErr "cc" ["-o", "pan", "pan.c", "-DSAFETY", "-O3"]
-                       (sout, serr) <- runWithStdErr "/usr/bin/time" ["-p", "./pan", "-n"]
+                       !(sout, serr) <- runWithStdErr "cc" ["-o", "pan", "pan.c", "-DSAFETY", "-O3"]
+                       !(sout, serr) <- runWithStdErr "/usr/bin/time" ["-p", "./pan", "-n"]
                        let ["real", rt , "user", ut, "sys", st] = words serr
                        let pantime = fst . head $ readSigned readFloat ut :: Rational
                        modifyIORef' totalTime (spintime + pantime +)
