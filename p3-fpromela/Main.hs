@@ -1,12 +1,13 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, DeriveDataTypeable, BangPatterns #-}
 module Main where
+
+import System.FilePath (splitExtension, (<.>))
 
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
 
 import Data.Map.Strict as Map
-
 
 import System.Console.CmdLib
 import qualified HSH.Command as C
@@ -16,6 +17,8 @@ import Text.Parsec (runParser)
 import FPromela.Parser as FPromela
 import FPromela.Pretty as FPPretty
 
+import qualified Abstraction.Parser as AbsParser
+
 import qualified TVL.Parser as TVL
 import qualified TVL.Pretty as TVLPretty
 
@@ -23,14 +26,25 @@ import qualified Transformation.Configurations as Cfgs
 import qualified Transformation.Transformation as Trans
 import qualified Transformation.Abstraction as Abs
 
-data Main = Main { input :: FilePath }
+data Main = Main { input :: FilePath, abstraction :: String }
   deriving (Typeable, Data, Eq)
 
 instance Attributes Main where
   attributes _ = group "Options" [
-    input %> [ Help "Input fPromela file to parse and pretty-print",
-               ArgHelp "FILENAME",
-               Required True ]
+    input %> [ Help "Input fPromela file to parse and pretty-print (expects .tvl file with the same name)",
+               ArgHelp "INPUT",
+               Required True,
+               Positional 0],
+    abstraction %> [ Help "Abstraction to run, e.g. 'ignore A; project B, !C; join'.\n\
+      \  'ignore' takes a comma separated list of feature names which should be ignored\n\
+      \  'project' takes a comma separated list of feature literals (A, !A) which it should project\n\
+      \ \t [projection on disjunction is not currently supported]\n\
+      \  ';' is used to compose multiple abstraction\n\
+      \  'join' flattens an fPromela file to Promela by converting all legal 'gd'-statements to 'if'-statements\n\
+      \ \t [only makes sense to use as the last abstraction in a composition]",
+    ArgHelp "ABSTRACTION",
+    Short ['a'],
+    Required False]
    ]
 
 instance RecordCommand Main where
@@ -39,8 +53,9 @@ instance RecordCommand Main where
 
 runPromela :: FilePath -> IO ()
 runPromela file = do
-  let promela_file = file ++ ".pml"
-  let tvl_file = file ++ ".tvl"
+  let promela_file = file
+  let (fname, ext) = splitExtension file
+  let tvl_file = fname <.> "tvl"
   promela_files <- glob promela_file
   when (length promela_files <= 0) $ die ("Cannot find promela file(s): " ++ promela_file)
   tvl_files <- glob tvl_file
@@ -69,5 +84,9 @@ runPromela file = do
 main :: IO ()
 main = do
   args <- getArgs
-  opts <- executeR (Main { input = "" }) args
+  opts <- executeR (Main { input = "", abstraction = "join" }) args
+  let !abs_res = runParser AbsParser.pAbstraction () "abstraction" $ abstraction opts
+  case abs_res of
+    Left err -> putStrLn . ("Error while parsing abstraction argument: \n" ++) . show $ err
+    Right _ -> return ()
   runPromela . input $ opts
