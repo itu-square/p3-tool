@@ -11,7 +11,7 @@ Flag Debug
 
 Library
  Build-Depends: base, parsec, pretty, containers, mtl>=2.2, set-monad, monad-loops, uniplate, language-c, sbv
- Hs-Source-Dirs: src
+ Hs-Source-Dirs: p3-tool
  Exposed-Modules:
     FPromela.Ast, FPromela.Lexer, FPromela.Parser, FPromela.Pretty,
     TVL.Ast, TVL.Lexer, TVL.Parser, TVL.Pretty,
