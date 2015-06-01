@@ -23,6 +23,14 @@ data Formula = FVar String
              | Formula :=>: Formula
      deriving (Eq, Show, Ord, Data, Typeable)
 
+nnf :: Formula -> Formula
+nnf = rewrite nnf'
+  where nnf' ((:!:) ((:!:) phi))   = Just phi
+        nnf' ((:!:) (phi :&: psi)) = Just (((:!:) phi) :|: ((:!:) psi))
+        nnf' ((:!:) (phi :|: psi)) = Just (((:!:) phi) :&: ((:!:) psi))
+        nnf' (phi :=>: psi)        = Just (((:!:) phi) :|: psi)
+        nnf' _                     = Nothing
+
 fromBool :: Bool -> Formula
 fromBool True = FTrue
 fromBool False = FFalse
