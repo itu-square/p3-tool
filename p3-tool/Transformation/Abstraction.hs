@@ -3,6 +3,10 @@ module Transformation.Abstraction (AbstractionMonad, Abstraction, joinAbs, ignor
 import Data.Foldable as Fold
 import qualified Data.Set.Monad as Set
 import qualified Data.Map.Strict as Map
+import qualified Data.List as List
+
+import Abstraction.Ast (Lit(..), feature)
+
 import qualified Transformation.Configurations as Cnfg
 import qualified Transformation.Formulae as Frm
 
@@ -11,23 +15,19 @@ import qualified Data.SBV as SBV
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Except
-import Control.Monad.State
+import Control.Monad.Reader
 import Control.Monad.Loops
 
-type AbstractionMonad m = (Functor m, Applicative m, Monad m, MonadError String m, MonadIO m, MonadState (Set.Set Cnfg.Config, Map.Map String Bool) m)
-type Abstraction m = Frm.Formula -> m Frm.Formula
+import Data.Generics.Uniplate.Data
 
-extractFeatures :: AbstractionMonad m => m (Set.Set String)
-extractFeatures = do
-    (cfgs, _) <- get
-    return $ Set.foldr Set.union Set.empty $ Set.map joinCfg cfgs
-  where joinCfg (Cnfg.Config incl excl) = Set.union incl excl
+type AbstractionMonad m = (Functor m, Applicative m, Monad m, MonadError String m, MonadIO m, MonadReader (Set.Set Cnfg.Config, [String]) m)
+type Abstraction m = (m [String], Frm.Formula -> m Frm.Formula)
 
 infix 5 |=
 
 (|=) :: AbstractionMonad m => Cnfg.Config -> Frm.Formula -> m Bool
 k |= phi = do
-    features <- extractFeatures
+    (_, features) <- ask
     let completeFrm = Frm.fromConfig k Frm.:=>: phi
     let pred = do fs <- foldrM featureToPred Map.empty features
                   v <- runExceptT (Frm.interpretAsSBool fs completeFrm)
@@ -44,30 +44,37 @@ k |= phi = do
           return $ Map.insert f val m
 
 joinAbs :: AbstractionMonad m => Abstraction m
-joinAbs phi = do
-  (cfgs, _) <- get
-  res <- anyM (|= phi) (Set.toList cfgs)
-  return $ Frm.fromBool res
+joinAbs = (joinFeatures, joinFormula)
+    where joinFeatures = return []
+          joinFormula phi = do
+            (cfgs, _) <- ask
+            b <- anyM (|= phi) (Set.toList cfgs)
+            return $ Frm.fromBool b
 
 ignoreAbs :: AbstractionMonad m => Set.Set String -> Abstraction m
-ignoreAbs ffs phi = do
-    Fold.mapM_ ignoreFeature ffs
-    (_, m) <- get
-    return $ Frm.graft (Map.map Frm.fromBool m) phi
-  where ignoreFeature ff = do
-          (cfgs, m) <- get
-          if ff `Map.member` m
-            then do
-                let consttrue = Fold.all ((ff `Set.member`) . Cnfg.config_included) (Set.toList cfgs)
-                if consttrue
-                    then modify' (\(cfgs, m) -> (removeFeature ff cfgs, Map.insert ff True m))
-                    else do
-                    let constfalse =  Fold.all ((ff `Set.member`) . Cnfg.config_excluded) (Set.toList cfgs)
-                    if constfalse
-                        then modify' (\(cfgs, m) -> (removeFeature ff cfgs, Map.insert ff True m))
-                        else return ()
-            else return ()
-        removeFeature ff = 
-               Set.map (\cfg -> Cnfg.Config 
-                                  (Set.delete ff $ Cnfg.config_included cfg)
-                                  (Set.delete ff $ Cnfg.config_excluded cfg))
+ignoreAbs ffs = (ignoreFeatures, ignoreFormula)
+    where ignoreFeatures = do
+            (_, features) <- ask
+            return $ features List.\\ Set.toList ffs
+          ignoreFormula phi = do
+            let phi' = Frm.nnf phi
+            return $ transform ignoreFormula' phi'
+          ignoreFormula' ((Frm.:!:) (Frm.FVar f)) | f `Set.member` ffs = Frm.FTrue
+          ignoreFormula' (Frm.FVar f) | f `Set.member` ffs = Frm.FTrue
+          ignoreFormula' phi = phi
+
+projectAbs :: AbstractionMonad m => Set.Set Lit -> Abstraction m
+projectAbs lits = (projectFeatures, projectFormula)
+    where ffs = Set.map feature lits
+          projectFeatures = do
+            (_, features) <- ask
+            return $ features List.\\ Set.toList ffs
+          projectFormula phi = do
+              let phi' = Frm.nnf phi
+              return $ transform projectFormula' phi'
+          projectFormula' ((Frm.:!:) (Frm.FVar f)) | PosLit f `Set.member` lits = Frm.FFalse
+          projectFormula' ((Frm.:!:) (Frm.FVar f)) | NegLit f `Set.member` lits = Frm.FTrue
+          projectFormula' (Frm.FVar f)             | PosLit f `Set.member` lits = Frm.FTrue
+          projectFormula' (Frm.FVar f)             | NegLit f `Set.member` lits = Frm.FFalse
+          projectFormula' phi = phi
+

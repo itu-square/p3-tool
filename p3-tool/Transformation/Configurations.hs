@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Transformation.Configurations (Config(..), generateConfigs) where
+module Transformation.Configurations (Config(..), generateConfigs, removeFeature) where
 
 import qualified TVL.Ast as T
 
@@ -14,17 +14,23 @@ import Control.Monad.Except
 data Config = Config { config_included :: Set.Set String, config_excluded :: Set.Set String }
   deriving (Eq, Show, Ord)
 
-data ConfigState = ConfigState { selections :: Set.Set (Set.Set String), allf :: Set.Set String }
-  deriving (Eq, Show)
-
-emptyConfigState :: ConfigState
-emptyConfigState = ConfigState (Set.singleton Set.empty) $ Set.empty
-
 generateConfigs :: (Monad m, MonadError String m) => T.Model -> m (Set.Set Config)
 generateConfigs [T.DFeature f] = do
   ConfigState sels alls <- generateFeatureConfigState True f
   return $ Set.map (\s -> Config s (alls `Set.difference` s)) sels
 generateConfigs m = throwError ("Unsupported configuration model: " ++ show m)
+
+removeFeature :: String -> Config -> Config
+removeFeature f cfg = cfg {
+  config_included = Set.delete f (config_included cfg),
+  config_excluded = Set.delete f (config_excluded cfg)
+}
+
+data ConfigState = ConfigState { selections :: Set.Set (Set.Set String), allf :: Set.Set String }
+  deriving (Eq, Show)
+
+emptyConfigState :: ConfigState
+emptyConfigState = ConfigState (Set.singleton Set.empty) $ Set.empty
 
 generateFeatureConfigState :: (Monad m, MonadError String m) => Bool -> T.FeatureDecl -> m ConfigState
 generateFeatureConfigState mustberoot (T.FtFeature root name items) | not root || mustberoot =  do
