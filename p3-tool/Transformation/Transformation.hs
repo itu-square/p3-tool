@@ -31,7 +31,19 @@ abstractSpec alpha spec cfgs = do
   let cfgs' = Set.foldr (\f cfgs' ->  Set.map (removeFeature f) cfgs') cfgs difff
   let (af, aphi) = alpha
   features' <- runReaderT af (cfgs', features)
-  runReaderT (transformBiM (rewriteFeatureBranches aphi (fname, features')) spec) (cfgs', features')
+  spec' <- setFeatures (fname, features') spec
+  runReaderT (transformBiM (rewriteFeatureBranches aphi (fname, features')) spec') (cfgs', features')
+
+setFeatures :: MonadIOExcept m => Features -> FP.Spec -> m FP.Spec
+setFeatures (fname, fs) spec = transformBiM updateFeatureDecl spec
+    where updateFeatureDecl :: MonadIOExcept m => FP.Module -> m FP.Module
+          updateFeatureDecl (FP.MUType "features" ds) = do ds' <- updateFeatures ds; return $ FP.MUType "features" ds'
+          updateFeatures :: MonadIOExcept m => [FP.Decl] -> m [FP.Decl]
+          updateFeatures (f@(FP.Decl Nothing FP.TBool [FP.IVar name Nothing Nothing]) : ds) | name `elem` fs = liftM (f :) (updateFeatures ds)
+                                                                                            | otherwise = updateFeatures ds
+          updateFeatures [] = return []
+          updateFeatures (d : ds') = throwError ("Unsupported decl " ++ show d)
+
 
 getFeatures :: MonadIOExcept m => FP.Spec -> m Features
 getFeatures spec = do
