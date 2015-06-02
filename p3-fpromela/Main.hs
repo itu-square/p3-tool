@@ -1,13 +1,15 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, DeriveDataTypeable, BangPatterns #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, DeriveDataTypeable, BangPatterns, ConstraintKinds, FlexibleContexts, TypeFamilies #-}
 module Main where
 
 import System.FilePath (splitExtension, (<.>))
 
 import Control.Monad
 import Control.Monad.Except
-import Control.Monad.State
+import Control.Monad.Reader
 
 import Data.Map.Strict as Map
+import Data.Foldable (foldrM)
+import qualified Data.Set.Monad as Set
 
 import System.Console.CmdLib
 import qualified HSH.Command as C
@@ -18,6 +20,7 @@ import FPromela.Parser as FPromela
 import FPromela.Pretty as FPPretty
 
 import qualified Abstraction.Parser as AbsParser
+import Abstraction.Ast (Abs(..))
 
 import qualified TVL.Parser as TVL
 import qualified TVL.Pretty as TVLPretty
@@ -51,8 +54,10 @@ instance RecordCommand Main where
   mode_summary _ = "fPromela file parser and pretty printer"
   run' cmd _ = return ()
 
-runPromela :: FilePath -> IO ()
-runPromela file = do
+type ConcreteMonad = ReaderT (Set.Set Cfgs.Config, [String]) (ExceptT String IO)
+
+runPromela :: FilePath -> [Abs.Abstraction ConcreteMonad] -> IO ()
+runPromela file alphas = do
   let promela_file = file
   let (fname, ext) = splitExtension file
   let tvl_file = fname <.> "tvl"
@@ -76,17 +81,21 @@ runPromela file = do
           case cfgs of
              Left err -> putStrLn err
              Right cfg -> do
-               spec <- runExceptT $ Trans.abstractSpec Abs.joinAbs promela_res cfg
+               spec <- runExceptT $ foldrM (\alpha spec -> Trans.abstractSpec alpha spec cfg) promela_res alphas
                case spec of
                  Left err -> putStrLn err
                  Right spec -> putStrLn . show . FPPretty.prettySpec $ spec
+
+translateAbs :: (Abs.AbstractionMonad m) => Abs -> Abs.Abstraction m
+translateAbs Join = Abs.joinAbs
+translateAbs (Ignore fs) = Abs.ignoreAbs $ Set.fromList fs
+translateAbs (Project lits) = Abs.projectAbs $ Set.fromList lits
 
 main :: IO ()
 main = do
   args <- getArgs
   opts <- executeR (Main { input = "", abstraction = "join" }) args
-  let !abs_res = runParser AbsParser.pAbstraction () "abstraction" $ abstraction opts
+  let abs_res = runParser AbsParser.pAbstraction () "abstraction" $ abstraction opts
   case abs_res of
-    Left err -> putStrLn . ("Error while parsing abstraction argument: \n" ++) . show $ err
-    Right _ -> return ()
-  runPromela . input $ opts
+    Right alphas -> runPromela (input opts) (Prelude.map translateAbs alphas)
+    Left err -> putStrLn . ("Error while parsing abstraction: \n " ++) . show $ err

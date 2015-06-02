@@ -19,7 +19,7 @@ Library
     Transformation.Configurations, Transformation.Formulae, Transformation.Abstraction, Transformation.Transformation
 
 Executable p3-fpromela
-  Build-Depends: p3-tool, base, containers, mtl>=2.2, parsec, cmdlib, HSH, filepath
+  Build-Depends: p3-tool, base, containers, set-monad, mtl>=2.2, parsec, cmdlib, HSH, filepath
   Hs-Source-Dirs: p3-fpromela
   Main-Is: Main.hs
   if flag(debug)

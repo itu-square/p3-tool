@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts, ViewPatterns, ConstraintKinds #-}
-module Transformation.Abstraction (AbstractionMonad, Abstraction, joinAbs, ignoreAbs) where
+module Transformation.Abstraction (AbstractionMonad, Abstraction, joinAbs, ignoreAbs, projectAbs) where
 import Data.Foldable as Fold
 import qualified Data.Set.Monad as Set
 import qualified Data.Map.Strict as Map
