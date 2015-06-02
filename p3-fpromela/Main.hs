@@ -76,10 +76,10 @@ runPromela file = do
           case cfgs of
              Left err -> putStrLn err
              Right cfg -> do
-               spec <- runExceptT $ runStateT (Trans.abstractSpec Abs.joinAbs promela_res) (cfg, Map.empty)
+               spec <- runExceptT $ Trans.abstractSpec Abs.joinAbs promela_res cfg
                case spec of
                  Left err -> putStrLn err
-                 Right (spec, _) -> putStrLn . show . FPPretty.prettySpec $ spec
+                 Right spec -> putStrLn . show . FPPretty.prettySpec $ spec
 
 main :: IO ()
 main = do

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts, ConstraintKinds, TypeFamilies #-}
 module Transformation.Transformation where
 
 import qualified FPromela.Ast as FP
@@ -17,17 +17,23 @@ import Data.Generics.Uniplate.Data
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Except
+import Control.Monad.Reader
 
+type MonadIOExcept m = (Functor m, Applicative m, Monad m, MonadError String m, MonadIO m)
 type Features = (String, [String])
 
-abstractSpec :: AbstractionMonad m => Abstraction m -> FP.Spec -> m FP.Spec
-abstractSpec alpha spec = do
+abstractSpec :: (MonadIOExcept n, AbstractionMonad m, m ~ ReaderT (Set.Set Config, [String]) n) =>
+                    Abstraction m -> FP.Spec -> Set.Set Config -> n FP.Spec
+abstractSpec alpha spec cfgs = do
+  let allf = Set.foldr (\e ss -> config_included e `Set.union` config_excluded e `Set.union` ss) Set.empty cfgs
   (fname, features) <- getFeatures spec
+  let difff = allf `Set.difference` Set.fromList features
+  let cfgs' = Set.foldr (\f cfgs' ->  Set.map (removeFeature f) cfgs') cfgs difff
   let (af, aphi) = alpha
-  features' <- af
-  transformBiM (rewriteFeatureBranches aphi (fname, features')) spec
+  features' <- runReaderT af (cfgs', features)
+  runReaderT (transformBiM (rewriteFeatureBranches aphi (fname, features')) spec) (cfgs', features')
 
-getFeatures :: AbstractionMonad m => FP.Spec -> m Features
+getFeatures :: MonadIOExcept m => FP.Spec -> m Features
 getFeatures spec = do
     let featureDecls = filter isFeaturesDecl $ universeBi spec
     when (length featureDecls <= 0) $ throwError "No features declaration found"
