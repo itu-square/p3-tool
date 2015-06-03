@@ -1,9 +1,11 @@
 Name: p3-tool
-Version: 0.1
+Version: 0.5
 Cabal-Version:  >= 1.8
 Author: Ahmad Salim Al-Sibahi
 Synopsis: Parser and Transformation tool for fPromela
 Build-Type: Simple
+License: LGPL-3
+License-File: LICENSE
 
 Flag Debug
   Description: Enable debug support
