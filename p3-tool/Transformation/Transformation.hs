@@ -32,12 +32,13 @@ abstractSpec alpha spec cfgs = do
   let (af, aphi) = alpha
   features' <- runReaderT af (cfgs', features)
   spec' <- setFeatures (fname, features') spec
-  runReaderT (transformBiM (rewriteFeatureBranches aphi (fname, features')) spec') (cfgs', features')
+  runReaderT (transformBiM (rewriteFeatureBranches aphi (fname, features)) spec') (cfgs', features)
 
 setFeatures :: MonadIOExcept m => Features -> FP.Spec -> m FP.Spec
 setFeatures (fname, fs) spec = transformBiM updateFeatureDecl spec
     where updateFeatureDecl :: MonadIOExcept m => FP.Module -> m FP.Module
           updateFeatureDecl (FP.MUType "features" ds) = do ds' <- updateFeatures ds; return $ FP.MUType "features" ds'
+          updateFeatureDecl d = return d
           updateFeatures :: MonadIOExcept m => [FP.Decl] -> m [FP.Decl]
           updateFeatures (f@(FP.Decl Nothing FP.TBool [FP.IVar name Nothing Nothing]) : ds) | name `elem` fs = liftM (f :) (updateFeatures ds)
                                                                                             | otherwise = updateFeatures ds
@@ -79,14 +80,14 @@ rewriteFeatureOpts alpha (f, fs) opts | any hasStaticVarRef opts = do
     mapM convertOption (zip opts phis')
   where hasStaticVarRef (FP.SStmt (FP.StExpr e) _ : _) = any isStaticVarRef $ childrenBi e
         hasStaticVarRef _ = False
-        isStaticVarRef (FP.VarRef f' _ _) | f == f' = True
+        isStaticVarRef (FP.VarRef f' _ _) | f == f' = True
         isStaticVarRef _                            = False
         mapOption o@((FP.SStmt (FP.StExpr e) Nothing):_) = do
             phi <- fromFPromelaExpr f e
             return $ Just phi
         mapOption o@((FP.SStmt FP.StElse Nothing):_) = return $ Nothing
         mapOption o = throwError ("Unsupported option: " ++ show o)
-        fixElse phis Nothing  = foldr (\phi phis' -> (:!:) phi :&: phis') FTrue (catMaybes phis)
+        fixElse phis Nothing  = let ophis = catMaybes phis in foldr (\phi phis' -> (:!:) phi :&: phis') ((:!:) $ head ophis) (tail ophis)
         fixElse phis (Just a) = a
         convertOption (_:steps, phi) = do
              newPhi <- alpha phi

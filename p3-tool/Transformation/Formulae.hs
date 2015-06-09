@@ -14,6 +14,8 @@ import FPromela.Ast as FP
 
 import Transformation.Configurations as Cnfgs
 
+import Debug.Trace
+
 data Formula = FVar String
              | FFalse
              | FTrue
@@ -24,7 +26,7 @@ data Formula = FVar String
      deriving (Eq, Show, Ord, Data, Typeable)
 
 nnf :: Formula -> Formula
-nnf = rewrite nnf'
+nnf f = let a = traceShow f $ rewrite nnf' f in traceShow a $ a
   where nnf' ((:!:) ((:!:) phi))   = Just phi
         nnf' ((:!:) (phi :&: psi)) = Just (((:!:) phi) :|: ((:!:) psi))
         nnf' ((:!:) (phi :|: psi)) = Just (((:!:) phi) :&: ((:!:) psi))

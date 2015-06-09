@@ -47,7 +47,8 @@ instance Attributes Main where
       \ \t [only makes sense to use as the last abstraction in a composition]",
     ArgHelp "ABSTRACTION",
     Short ['a'],
-    Required False]
+    Required False,
+    Default "join"]
    ]
 
 instance RecordCommand Main where
