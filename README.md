@@ -3,7 +3,7 @@ p3-tool
 
 A reconfigurator tool for fPromela with support for variability abstractions.
 
-> Info: The tool now supports basic features (June 3rd 2015)
+> Info: The tool now supports basic calculus (June 9th 2015)
 
 You can retrieve the tool from <http://ahmadsalim.github.io/p3-tool>; to install the tool, download the repository, get the latest version of the [Haskell Platform](https://www.haskell.org/platform/) and run `cabal install` in the directory containing the `p3-tool` cabal file.
 
