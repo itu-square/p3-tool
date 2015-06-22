@@ -24,7 +24,7 @@ data Formula = FVar String
      deriving (Eq, Show, Ord, Data, Typeable)
 
 nnf :: Formula -> Formula
-nnf = let a = rewrite nnf'
+nnf = rewrite nnf'
   where nnf' ((:!:) ((:!:) phi))   = Just phi
         nnf' ((:!:) (phi :&: psi)) = Just (((:!:) phi) :|: ((:!:) psi))
         nnf' ((:!:) (phi :|: psi)) = Just (((:!:) phi) :&: ((:!:) psi))
