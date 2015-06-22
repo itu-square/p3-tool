@@ -92,7 +92,7 @@ runSpin file = do
                  spec <- runExceptT $ Trans.abstractSpec Abs.joinAbs promela_res cfg
                  case spec of
                    Left err -> putStrLn err
-                   Right spec -> do
+                   Right (spec, cfg) -> do
                      withSystemTempDirectory "p3-spin-" $ \path -> do
                        cd path
                        let specfile = "out.pml"

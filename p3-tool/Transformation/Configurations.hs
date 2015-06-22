@@ -1,7 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Transformation.Configurations (Config(..), generateConfigs, removeFeature) where
+module Transformation.Configurations (Config(..), generateConfigs, removeFeature, excludeLitCfgs) where
 
 import qualified TVL.Ast as T
+
+import Abstraction.Ast (Lit(..), feature)
 
 import Data.Generics.Uniplate.Data
 
@@ -25,6 +27,11 @@ removeFeature f cfg = cfg {
   config_included = Set.delete f (config_included cfg),
   config_excluded = Set.delete f (config_excluded cfg)
 }
+
+excludeLitCfgs :: Lit -> Set.Set Config -> Set.Set Config
+excludeLitCfgs (PosLit f) cfgs = Set.filter (not . Set.member f . config_included) cfgs
+excludeLitCfgs (NegLit f) cfgs = Set.filter (not . Set.member f . config_excluded) cfgs
+
 
 data ConfigState = ConfigState { selections :: Set.Set (Set.Set String), allf :: Set.Set String }
   deriving (Eq, Show)

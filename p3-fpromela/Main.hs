@@ -82,10 +82,10 @@ runPromela file alphas = do
           case cfgs of
              Left err -> putStrLn err
              Right cfg -> do
-               spec <- runExceptT $ foldrM (\alpha spec -> Trans.abstractSpec alpha spec cfg) promela_res alphas
+               spec <- runExceptT $ foldrM (\alpha (spec, cfg) -> Trans.abstractSpec alpha spec cfg) (promela_res, cfg) alphas
                case spec of
                  Left err -> putStrLn err
-                 Right spec -> putStrLn . show . FPPretty.prettySpec $ spec
+                 Right (spec, cfg) -> putStrLn . show . FPPretty.prettySpec $ spec
 
 translateAbs :: (Abs.AbstractionMonad m) => Abs -> Abs.Abstraction m
 translateAbs Join = Abs.joinAbs

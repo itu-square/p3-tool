@@ -23,16 +23,18 @@ type MonadIOExcept m = (Functor m, Applicative m, Monad m, MonadError String m, 
 type Features = (String, [String])
 
 abstractSpec :: (MonadIOExcept n, AbstractionMonad m, m ~ ReaderT (Set.Set Config, [String]) n) =>
-                    Abstraction m -> FP.Spec -> Set.Set Config -> n FP.Spec
+                    Abstraction m -> FP.Spec -> Set.Set Config -> n (FP.Spec, Set.Set Config)
 abstractSpec alpha spec cfgs = do
   let allf = Set.foldr (\e ss -> config_included e `Set.union` config_excluded e `Set.union` ss) Set.empty cfgs
   (fname, features) <- getFeatures spec
   let difff = allf `Set.difference` Set.fromList features
   let cfgs' = Set.foldr (\f cfgs' ->  Set.map (removeFeature f) cfgs') cfgs difff
-  let (af, aphi) = alpha
+  let (af, lits, aphi) = alpha
   features' <- runReaderT af (cfgs', features)
   spec' <- setFeatures (fname, features') spec
-  runReaderT (transformBiM (rewriteFeatureBranches aphi (fname, features)) spec') (cfgs', features)
+  spec'' <- runReaderT (transformBiM (rewriteFeatureBranches aphi (fname, features)) spec') (cfgs', features)
+  let cfgs'' = foldr (\lit cfgs'' -> excludeLitCfgs lit cfgs'') cfgs' lits
+  pure (spec'', cfgs'')
 
 setFeatures :: MonadIOExcept m => Features -> FP.Spec -> m FP.Spec
 setFeatures (fname, fs) spec = transformBiM updateFeatureDecl spec

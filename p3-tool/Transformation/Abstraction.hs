@@ -21,7 +21,7 @@ import Control.Monad.Loops
 import Data.Generics.Uniplate.Data
 
 type AbstractionMonad m = (Functor m, Applicative m, Monad m, MonadError String m, MonadIO m, MonadReader (Set.Set Cnfg.Config, [String]) m)
-type Abstraction m = (m [String], Frm.Formula -> m Frm.Formula)
+type Abstraction m = (m [String], [Lit], Frm.Formula -> m Frm.Formula)
 
 infix 5 |=
 
@@ -44,7 +44,7 @@ k |= phi = do
           return $ Map.insert f val m
 
 joinAbs :: AbstractionMonad m => Abstraction m
-joinAbs = (joinFeatures, joinFormula)
+joinAbs = (joinFeatures, [], joinFormula)
     where joinFeatures = return []
           joinFormula phi = do
             (cfgs, _) <- ask
@@ -52,7 +52,7 @@ joinAbs = (joinFeatures, joinFormula)
             return $ Frm.fromBool b
 
 ignoreAbs :: AbstractionMonad m => Set.Set String -> Abstraction m
-ignoreAbs ffs = (ignoreFeatures, ignoreFormula)
+ignoreAbs ffs = (ignoreFeatures, [], ignoreFormula)
     where ignoreFeatures = do
             (_, features) <- ask
             return $ features List.\\ Set.toList ffs
@@ -64,7 +64,7 @@ ignoreAbs ffs = (ignoreFeatures, ignoreFormula)
           ignoreFormula' phi = phi
 
 projectAbs :: AbstractionMonad m => Set.Set Lit -> Abstraction m
-projectAbs lits = (projectFeatures, projectFormula)
+projectAbs lits = (projectFeatures, map negate . Set.toList $ lits, projectFormula)
     where ffs = Set.map feature lits
           projectFeatures = do
             (_, features) <- ask
@@ -77,4 +77,5 @@ projectAbs lits = (projectFeatures, projectFormula)
           projectFormula' (Frm.FVar f)             | PosLit f `Set.member` lits = Frm.FTrue
           projectFormula' (Frm.FVar f)             | NegLit f `Set.member` lits = Frm.FFalse
           projectFormula' phi = phi
-
+          negate (PosLit f) = NegLit f
+          negate (NegLit f) = PosLit f
