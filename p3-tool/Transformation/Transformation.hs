@@ -18,6 +18,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
+import Control.Monad.State
 
 type MonadIOExcept m = (Functor m, Applicative m, Monad m, MonadError String m, MonadIO m)
 type Features = (String, [String])
@@ -33,8 +34,9 @@ abstractSpec alpha spec cfgs = do
   features' <- runReaderT af (cfgs', features)
   spec' <- setFeatures (fname, features') spec
   spec'' <- runReaderT (transformBiM (rewriteFeatureBranches aphi (fname, features)) spec') (cfgs', features)
+  spec''' <- removeFeatureDeclsIfEmpty spec''
   let cfgs'' = foldr (\lit cfgs'' -> excludeLitCfgs lit cfgs'') cfgs' lits
-  pure (spec'', cfgs'')
+  pure (spec''', cfgs'')
 
 setFeatures :: MonadIOExcept m => Features -> FP.Spec -> m FP.Spec
 setFeatures (fname, fs) spec = transformBiM updateFeatureDecl spec
@@ -97,3 +99,25 @@ rewriteFeatureOpts alpha (f, fs) opts | any hasStaticVarRef opts = do
              return ((FP.SStmt (FP.StExpr newE) Nothing):steps)
         convertOption o              = throwError ("Unsupported option: " ++ show o)
 rewriteFeatureOpts alpha fs o = transformBiM (rewriteFeatureBranches alpha fs) o
+
+-- Remove empty features decl since they are invalid
+removeFeatureDeclsIfEmpty :: MonadIOExcept n => FP.Spec -> n FP.Spec
+removeFeatureDeclsIfEmpty spec = do
+    (spec', res) <- runStateT (transformBiM removeFeatureTypeDecl spec) $ False
+    if res
+      then
+        transformBiM removeFeatureVarDecl spec'
+      else
+        pure spec'
+  where removeFeatureTypeDecl :: MonadIOExcept n => [FP.Module] -> StateT Bool n [FP.Module]
+        removeFeatureTypeDecl ms | f `elem` ms = do
+          put True
+          return $ delete f ms
+          where f :: FP.Module
+                f = (FP.MUType "features" [])
+        removeFeatureTypeDecl ms = return ms
+        removeFeatureVarDecl :: MonadIOExcept n => [FP.Decl] -> n [FP.Decl]
+        removeFeatureVarDecl ds = return $ filter (not . isFeatureVarDecl) ds
+          where isFeatureVarDecl :: FP.Decl -> Bool
+                isFeatureVarDecl (FP.Decl _ (FP.TUName "features") [FP.IVar _ _ _]) = True
+                isFeatureVarDecl _ = False
