@@ -11,6 +11,7 @@ import Data.Generics.Uniplate.Data
 import Control.Monad.Except
 
 import FPromela.Ast as FP
+import TVL.Ast as T
 
 import Transformation.Configurations as Cnfgs
 
@@ -140,6 +141,17 @@ interpretAsBool env (phi1 :=>: phi2) = do
   phi1p <- interpretAsBool env phi1
   phi2p <- interpretAsBool env phi2
   return (phi1p ==> phi2p)
+
+interpretAsTVLConstraint :: Formula -> T.ConstraintDecl
+interpretAsTVLConstraint = CtExpr . interpretAsTVLExpr
+  where interpretAsTVLExpr :: Formula -> T.Expr
+        interpretAsTVLExpr (FVar name) = T.Ref name
+        interpretAsTVLExpr FFalse      = T.EBool False
+        interpretAsTVLExpr FTrue       = T.EBool True
+        interpretAsTVLExpr ((:!:) phi) = T.UnOp "!" (interpretAsTVLExpr phi)
+        interpretAsTVLExpr (phi1 :&: phi2)  = T.BinOp "&&" (interpretAsTVLExpr phi1) (interpretAsTVLExpr phi2)
+        interpretAsTVLExpr (phi1 :|: phi2)  = T.BinOp "||" (interpretAsTVLExpr phi1) (interpretAsTVLExpr phi2)
+        interpretAsTVLExpr (phi1 :=>: phi2) = interpretAsTVLExpr (((:!:) phi1) :|: phi2)
 
 graft :: Map.Map String Formula -> Formula -> Formula
 graft env (FVar name) =

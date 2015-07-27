@@ -16,7 +16,7 @@ Library
  Hs-Source-Dirs: p3-tool
  Exposed-Modules:
     FPromela.Ast, FPromela.Lexer, FPromela.Parser, FPromela.Pretty,
-    TVL.Ast, TVL.Lexer, TVL.Parser, TVL.Pretty,
+    TVL.Ast, TVL.Lexer, TVL.Parser, TVL.Pretty, TVL.Util,
     Abstraction.Ast, Abstraction.Parser,
     Transformation.Configurations, Transformation.Formulae, Transformation.Abstraction, Transformation.Transformation
 
