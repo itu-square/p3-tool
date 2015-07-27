@@ -2,6 +2,7 @@
 module Transformation.Configurations (Config(..), generateConfigs, removeFeature, excludeLitCfgs) where
 
 import qualified TVL.Ast as T
+import qualified TVL.Pretty as TVLPretty
 
 import Abstraction.Ast (Lit(..), feature)
 
@@ -20,7 +21,7 @@ generateConfigs :: (Monad m, MonadError String m) => T.Model -> m (Set.Set Confi
 generateConfigs [T.DFeature f] = do
   ConfigState sels alls <- generateFeatureConfigState True f
   return $ Set.map (\s -> Config s (alls `Set.difference` s)) sels
-generateConfigs m = throwError ("Unsupported configuration model: " ++ show m)
+generateConfigs m = throwError ("Unsupported configuration model:\n" ++ (show . TVLPretty.prettyModel) m)
 
 removeFeature :: String -> Config -> Config
 removeFeature f cfg = cfg {
