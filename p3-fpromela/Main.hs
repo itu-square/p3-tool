@@ -1,7 +1,8 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, DeriveDataTypeable, BangPatterns, ConstraintKinds, FlexibleContexts, TypeFamilies #-}
 module Main where
 
-import System.FilePath (splitExtension, (<.>))
+import System.FilePath (splitExtension, (<.>), isValid)
+import System.Directory (makeAbsolute)
 
 import Control.Monad
 import Control.Monad.Except
@@ -29,7 +30,7 @@ import qualified Transformation.Configurations as Cfgs
 import qualified Transformation.Transformation as Trans
 import qualified Transformation.Abstraction as Abs
 
-data Main = Main { input :: FilePath, abstraction :: String }
+data Main = Main { input :: FilePath, abstraction :: String, output_tvl :: String, output_pml :: String }
   deriving (Typeable, Data, Eq)
 
 instance Attributes Main where
@@ -46,9 +47,26 @@ instance Attributes Main where
       \  'join' flattens an fPromela file to Promela by converting all legal 'gd'-statements to 'if'-statements\n\
       \ \t [only makes sense to use as the last abstraction in a composition]",
     ArgHelp "ABSTRACTION",
+    Long ["abs"],
     Short ['a'],
     Required False,
-    Default "join"]
+    Default "join"],
+    output_tvl %> [
+      Help "Filename to write output TVL model",
+      ArgHelp "TVL_OUTPUT",
+      Required False,
+      Default "",
+      Long ["otvl"],
+      Short ['t']
+    ],
+    output_pml %> [
+      Help "Filename to write output fPromela program",
+      ArgHelp "PML_OUTPUT",
+      Required False,
+      Default "",
+      Long ["opml"],
+      Short ['o']
+    ]
    ]
 
 instance RecordCommand Main where
@@ -57,8 +75,8 @@ instance RecordCommand Main where
 
 type ConcreteMonad = ReaderT (Set.Set Cfgs.Config, [String]) (ExceptT String IO)
 
-runPromela :: FilePath -> [Abs.Abstraction ConcreteMonad] -> IO ()
-runPromela file alphas = do
+runPromela :: FilePath -> [Abs.Abstraction ConcreteMonad] -> String -> String -> IO ()
+runPromela file alphas opml otvl = do
   let promela_file = file
   let (fname, ext) = splitExtension file
   let tvl_file = fname <.> "tvl"
@@ -70,6 +88,7 @@ runPromela file alphas = do
   let tvl_file_name = head tvl_files
   promela_file_contents <- C.run $ ("cpp", ["-w", promela_file_name]) C.-|- ("sed", ["/^\\#/d"])
   let promela_res = runParser FPromela.pSpec emptyParserState promela_file_name promela_file_contents
+  -- This can probably be solved more elegantly using the Either monad
   case promela_res of
     Left err -> putStrLn . ("Error while parsing promela file(s): \n" ++) . show $ err
     Right promela_res -> do
@@ -85,7 +104,21 @@ runPromela file alphas = do
                spec <- runExceptT $ foldrM (\alpha (spec, cfg) -> Trans.abstractSpec alpha spec cfg) (promela_res, cfg) alphas
                case spec of
                  Left err -> putStrLn err
-                 Right (spec, cfg) -> putStrLn . show . FPPretty.prettySpec $ spec
+                 Right (spec, cfg) -> do
+                    if opml == "" || not (isValid opml)
+                      then
+                        putStrLn . show . FPPretty.prettySpec $ spec
+                      else do
+                        opml <- makeAbsolute opml
+                        putStrLn ("Wrote PML file to " ++ opml)
+                        writeFile opml (show . FPPretty.prettySpec $ spec)
+                    if otvl == "" || not (isValid otvl)
+                      then
+                        return ()
+                      else do
+                        otvl <- makeAbsolute otvl
+                        putStrLn ("Wrote TVL file to " ++ otvl)
+                        writeFile otvl (show . TVLPretty.prettyModel $ tvl_res)
 
 translateAbs :: (Abs.AbstractionMonad m) => Abs -> Abs.Abstraction m
 translateAbs Join = Abs.joinAbs
@@ -95,8 +128,8 @@ translateAbs (Project lits) = Abs.projectAbs $ Set.fromList lits
 main :: IO ()
 main = do
   args <- getArgs
-  opts <- executeR (Main { input = "", abstraction = "join" }) args
+  opts <- executeR (Main { input = "", abstraction = "join", output_pml = "", output_tvl = "" }) args
   let abs_res = runParser AbsParser.pAbstraction () "abstraction" $ abstraction opts
   case abs_res of
-    Right alphas -> runPromela (input opts) (Prelude.map translateAbs alphas)
+    Right alphas -> runPromela (input opts) (Prelude.map translateAbs alphas) (output_pml opts) (output_tvl opts)
     Left err -> putStrLn . ("Error while parsing abstraction: \n " ++) . show $ err

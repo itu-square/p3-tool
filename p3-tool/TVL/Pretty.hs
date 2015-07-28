@@ -43,7 +43,7 @@ prettyFtBodyItem :: FtBodyItem -> Doc
 prettyFtBodyItem (FtiData dat) = text "data" <+> text "{" $+$ (vcat $ map (\(x,y) -> (text . show $ x) <+> (text . show $ y) <> semi) dat) $+$ text "}"
 prettyFtBodyItem (FtiConstraint cd) = prettyConstraintDecl cd
 prettyFtBodyItem (FtiAttribute ad) = prettyAttributeDecl ad
-prettyFtBodyItem (FtiGroup crd body) = text "group" <+> prettyCardinality crd <+> text "{" $+$ (vcat $ map prettyFtHiDecl body) $+$ text "}"
+prettyFtBodyItem (FtiGroup crd body) = text "group" <+> prettyCardinality crd <+> text "{" $+$ (vcat $ punctuate comma (map prettyFtHiDecl body)) $+$ text "}"
 
 prettyPresence :: Presence -> Doc
 prettyPresence PShared = text "shared"
@@ -58,7 +58,7 @@ prettyCardinality :: Cardinality -> Doc
 prettyCardinality CdOneOf   = text "oneof"
 prettyCardinality CdSomeOf  = text "someof"
 prettyCardinality CdAllOf   = text "allof"
-prettyCardinality (CdRange il ih) = brackets ((text . show $ il) <+> comma <+> maybe (text "*") (text . show) ih)
+prettyCardinality (CdRange il ih) = brackets ((text . show $ il) <+> text ".." <+> maybe (text "*") (text . show) ih)
 
 prettyAttributeDecl :: AttributeDecl -> Doc
 prettyAttributeDecl (AttrInt nm body) = text "int" <+> text nm <+> maybe empty prettyAttributeBody body <> semi
