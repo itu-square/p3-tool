@@ -64,18 +64,8 @@ ignoreAbs ffs = (ignoreFeatures, [], ignoreFormula)
           ignoreFormula' phi = phi
 
 projectAbs :: AbstractionMonad m => Set.Set Lit -> Abstraction m
-projectAbs lits = (projectFeatures, map negate . Set.toList $ lits, projectFormula)
-    where ffs = Set.map feature lits
-          projectFeatures = do
+projectAbs lits = (projectFeatures, Set.toList $ lits, projectFormula)
+    where projectFeatures = do
             (_, features) <- ask
-            return $ features List.\\ Set.toList ffs
-          projectFormula phi = do
-              let phi' = Frm.nnf phi
-              return $ transform projectFormula' phi'
-          projectFormula' ((Frm.:!:) (Frm.FVar f)) | PosLit f `Set.member` lits = Frm.FFalse
-          projectFormula' ((Frm.:!:) (Frm.FVar f)) | NegLit f `Set.member` lits = Frm.FTrue
-          projectFormula' (Frm.FVar f)             | PosLit f `Set.member` lits = Frm.FTrue
-          projectFormula' (Frm.FVar f)             | NegLit f `Set.member` lits = Frm.FFalse
-          projectFormula' phi = phi
-          negate (PosLit f) = NegLit f
-          negate (NegLit f) = PosLit f
+            return features
+          projectFormula = return

@@ -89,10 +89,10 @@ runSpin file = do
                let indcfgs = fmap Set.singleton cfgs
                totalTime <- newIORef (0 :: Rational)
                forM_ indcfgs $ \cfg -> do
-                 spec <- runExceptT $ Trans.abstractSpec Abs.joinAbs promela_res cfg
+                 spec <- runExceptT $ Trans.abstractSpec Abs.joinAbs promela_res tvl_res cfg
                  case spec of
                    Left err -> putStrLn err
-                   Right (spec, cfg) -> do
+                   Right (spec, tvl_res, cfg) -> do
                      withSystemTempDirectory "p3-spin-" $ \path -> do
                        cd path
                        let specfile = "out.pml"

@@ -2,6 +2,9 @@
 module Transformation.Transformation where
 
 import qualified FPromela.Ast as FP
+import qualified TVL.Ast as TVL
+
+import qualified TVL.Util as TUtil
 
 import Transformation.Configurations
 import Transformation.Formulae
@@ -24,8 +27,8 @@ type MonadIOExcept m = (Functor m, Applicative m, Monad m, MonadError String m, 
 type Features = (String, [String])
 
 abstractSpec :: (MonadIOExcept n, AbstractionMonad m, m ~ ReaderT (Set.Set Config, [String]) n) =>
-                    Abstraction m -> FP.Spec -> Set.Set Config -> n (FP.Spec, Set.Set Config)
-abstractSpec alpha spec cfgs = do
+                    Abstraction m -> FP.Spec -> TVL.Model -> Set.Set Config -> n (FP.Spec, TVL.Model, Set.Set Config)
+abstractSpec alpha spec tvl cfgs = do
   let allf = Set.foldr (\e ss -> config_included e `Set.union` config_excluded e `Set.union` ss) Set.empty cfgs
   (fname, features) <- getFeatures spec
   let difff = allf `Set.difference` Set.fromList features
@@ -36,7 +39,13 @@ abstractSpec alpha spec cfgs = do
   spec'' <- runReaderT (transformBiM (rewriteFeatureBranches aphi (fname, features)) spec') (cfgs', features)
   spec''' <- removeFeatureDeclsIfEmpty spec''
   let cfgs'' = foldr (\lit cfgs'' -> excludeLitCfgs lit cfgs'') cfgs' lits
-  pure (spec''', cfgs'')
+  tvl' <-
+    if lits /= []
+      then do
+        prod <- fromLits lits
+        TUtil.addConstraint (interpretAsTVLConstraint prod) tvl
+    else return tvl
+  pure (spec''', tvl', cfgs'')
 
 setFeatures :: MonadIOExcept m => Features -> FP.Spec -> m FP.Spec
 setFeatures (fname, fs) spec = transformBiM updateFeatureDecl spec

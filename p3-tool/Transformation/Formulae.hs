@@ -12,6 +12,7 @@ import Control.Monad.Except
 
 import FPromela.Ast as FP
 import TVL.Ast as T
+import Abstraction.Ast(Lit(..))
 
 import Transformation.Configurations as Cnfgs
 
@@ -70,6 +71,12 @@ fromFPromelaExpr prefix (FP.EAnyExpr ae) = fromFPromelaAnyExpr ae
           return $ (:!:) phi1
         fromFPromelaAnyExpr e = throwError ("Unsupported expression: " ++ show e)
 fromFPromelaExpr prefix e               = throwError ("Unsupported expression: " ++ show e)
+
+fromLits :: (Monad m, MonadError String m) => [Lit] -> m Formula
+fromLits (x : xs) = return $ foldr (\l phi -> fromLit l :&: phi) (fromLit x) xs
+  where fromLit (PosLit var) = FVar var
+        fromLit (NegLit var) = (:!:) $ FVar var
+fromLits [] = throwError "INTERNAL ERROR: Empty list unsupported by fromLits"
 
 interpretAsFPromelaExpr :: String -> Formula -> FP.Expr
 interpretAsFPromelaExpr prefix phi = FP.EAnyExpr $ interpretAsFPromelaAnyExpr prefix phi

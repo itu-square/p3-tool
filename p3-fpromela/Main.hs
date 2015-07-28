@@ -101,10 +101,10 @@ runPromela file alphas opml otvl = do
           case cfgs of
              Left err -> putStrLn err
              Right cfg -> do
-               spec <- runExceptT $ foldrM (\alpha (spec, cfg) -> Trans.abstractSpec alpha spec cfg) (promela_res, cfg) alphas
-               case spec of
+               absout <- runExceptT $ foldrM (\alpha (spec, tvl_res, cfg) -> Trans.abstractSpec alpha spec tvl_res cfg) (promela_res, tvl_res, cfg) alphas
+               case absout of
                  Left err -> putStrLn err
-                 Right (spec, cfg) -> do
+                 Right (spec, tvl_res, cfg) -> do
                     if opml == "" || not (isValid opml)
                       then
                         putStrLn . show . FPPretty.prettySpec $ spec

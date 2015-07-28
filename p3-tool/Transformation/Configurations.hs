@@ -30,8 +30,8 @@ removeFeature f cfg = cfg {
 }
 
 excludeLitCfgs :: Lit -> Set.Set Config -> Set.Set Config
-excludeLitCfgs (PosLit f) cfgs = Set.filter (not . Set.member f . config_included) cfgs
-excludeLitCfgs (NegLit f) cfgs = Set.filter (not . Set.member f . config_excluded) cfgs
+excludeLitCfgs (PosLit f) cfgs = Set.filter (not . Set.member f . config_excluded) cfgs
+excludeLitCfgs (NegLit f) cfgs = Set.filter (not . Set.member f . config_included) cfgs
 
 
 data ConfigState = ConfigState { selections :: Set.Set (Set.Set String), allf :: Set.Set String }
