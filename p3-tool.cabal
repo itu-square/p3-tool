@@ -18,7 +18,8 @@ Library
     FPromela.Ast, FPromela.Lexer, FPromela.Parser, FPromela.Pretty,
     TVL.Ast, TVL.Lexer, TVL.Parser, TVL.Pretty, TVL.Util,
     Abstraction.Ast, Abstraction.Parser,
-    Transformation.Configurations, Transformation.Formulae, Transformation.Abstraction, Transformation.Transformation
+    Transformation.Util, Transformation.Configurations, Transformation.Formulae,
+    Transformation.Abstraction, Transformation.Transformation
 
 Executable p3-fpromela
   Build-Depends: p3-tool, base, containers, set-monad, mtl>=2.2, parsec, cmdlib, HSH, filepath, directory>=1.2.2

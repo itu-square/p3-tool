@@ -23,32 +23,12 @@ import Data.Generics.Uniplate.Data
 type AbstractionMonad m = (Functor m, Applicative m, Monad m, MonadError String m, MonadIO m, MonadReader (Set.Set Cnfg.Config, [String]) m)
 type Abstraction m = (m [String], [Lit], Frm.Formula -> m Frm.Formula)
 
-infix 5 |=
-
-(|=) :: AbstractionMonad m => Cnfg.Config -> Frm.Formula -> m Bool
-k |= phi = do
-    (_, features) <- ask
-    let completeFrm = Frm.fromConfig k Frm.:=>: phi
-    let pred = do fs <- foldrM featureToPred Map.empty features
-                  v <- runExceptT (Frm.interpretAsSBool fs completeFrm)
-                  case v of
-                    Left err -> error err
-                    Right p -> return p
-    tres@(SBV.ThmResult res) <- liftIO $ SBV.prove pred
-    case res of
-        SBV.Satisfiable _ _ -> return False
-        SBV.Unsatisfiable _ -> return True
-        _ -> throwError (show tres)
-  where featureToPred f m = do
-          val <- SBV.forall f
-          return $ Map.insert f val m
-
 joinAbs :: AbstractionMonad m => Abstraction m
 joinAbs = (joinFeatures, [], joinFormula)
     where joinFeatures = return []
           joinFormula phi = do
             (cfgs, _) <- ask
-            b <- anyM (|= phi) (Set.toList cfgs)
+            b <- anyM (Cnfg.|= phi) (Set.toList cfgs)
             return $ Frm.fromBool b
 
 ignoreAbs :: AbstractionMonad m => Set.Set String -> Abstraction m

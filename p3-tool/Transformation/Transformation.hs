@@ -6,6 +6,7 @@ import qualified TVL.Ast as TVL
 
 import qualified TVL.Util as TUtil
 
+import Transformation.Util
 import Transformation.Configurations
 import Transformation.Formulae
 import Transformation.Abstraction
@@ -23,7 +24,6 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
 
-type MonadIOExcept m = (Functor m, Applicative m, Monad m, MonadError String m, MonadIO m)
 type Features = (String, [String])
 
 abstractSpec :: (MonadIOExcept n, AbstractionMonad m, m ~ ReaderT (Set.Set Config, [String]) n) =>

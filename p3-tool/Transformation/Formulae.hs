@@ -14,8 +14,6 @@ import FPromela.Ast as FP
 import TVL.Ast as T
 import Abstraction.Ast(Lit(..))
 
-import Transformation.Configurations as Cnfgs
-
 data Formula = FVar String
              | FFalse
              | FTrue
@@ -33,16 +31,12 @@ nnf = rewrite nnf'
         nnf' (phi :=>: psi)        = Just (((:!:) phi) :|: psi)
         nnf' _                     = Nothing
 
+vars :: Formula -> Set.Set String
+vars phi = Set.fromList [ f | FVar f <- universe phi ]
+
 fromBool :: Bool -> Formula
 fromBool True = FTrue
 fromBool False = FFalse
-
-fromConfig :: Cnfgs.Config -> Formula
-fromConfig (Cnfgs.Config incl excl) =
-  let inclvars = Set.mapMonotonic FVar incl
-      exclvars = Set.mapMonotonic ((:!:) . FVar) excl
-      allvars  = Set.union inclvars exclvars
-  in Set.foldr (:&:) FTrue allvars
 
 fromFPromelaExpr :: (Monad m, MonadError String m) => String -> FP.Expr -> m Formula
 fromFPromelaExpr prefix (FP.ELogic e1 "||" e2) = do
@@ -71,6 +65,26 @@ fromFPromelaExpr prefix (FP.EAnyExpr ae) = fromFPromelaAnyExpr ae
           return $ (:!:) phi1
         fromFPromelaAnyExpr e = throwError ("Unsupported expression: " ++ show e)
 fromFPromelaExpr prefix e               = throwError ("Unsupported expression: " ++ show e)
+
+fromTVLExpr :: (Monad m, MonadError String m) => T.Expr -> m Formula
+fromTVLExpr (T.Ref name) = return $ FVar name
+fromTVLExpr (T.EBool b)  = return $ if b then FTrue else FFalse
+fromTVLExpr (T.UnOp "!" e) = do
+      phi <- fromTVLExpr e
+      return . (:!:) $ phi
+fromTVLExpr (T.BinOp "&&" e1 e2) = do
+  phi1 <- fromTVLExpr e1
+  phi2 <- fromTVLExpr e2
+  return $ phi1 :&: phi2
+fromTVLExpr (T.BinOp "||" (T.UnOp "!" e1) e2) = do
+  phi1 <- fromTVLExpr e1
+  phi2 <- fromTVLExpr e2
+  return $ phi1 :=>: phi2
+fromTVLExpr (T.BinOp "||" e1 e2) = do
+  phi1 <- fromTVLExpr e1
+  phi2 <- fromTVLExpr e2
+  return $ phi1 :|: phi2
+fromTVLExpr e = throwError ("Unsupported TVL Expression: " ++ show e)
 
 fromLits :: (Monad m, MonadError String m) => [Lit] -> m Formula
 fromLits (x : xs) = return $ foldr (\l phi -> fromLit l :&: phi) (fromLit x) xs
