@@ -21,7 +21,7 @@ Library
     Transformation.Configurations, Transformation.Formulae, Transformation.Abstraction, Transformation.Transformation
 
 Executable p3-fpromela
-  Build-Depends: p3-tool, base, containers, set-monad, mtl>=2.2, parsec, cmdlib, HSH, filepath, directory>=1.2.2
+  Build-Depends: p3-tool, base, containers, set-monad, mtl>=2.2, parsec, cmdlib, filepath, HSH, cpphs, directory>=1.2.2
   Hs-Source-Dirs: p3-fpromela
   Main-Is: Main.hs
   if flag(debug)
@@ -35,3 +35,5 @@ Executable p3-spin
   if flag(debug)
     CC-Options: "-DDEBUG"
     CPP-Options: -DDEBUG
+  if os(windows)
+    Buildable: False

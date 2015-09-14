@@ -15,7 +15,10 @@ import qualified Data.Set.Monad as Set
 import System.Console.CmdLib
 import qualified HSH.Command as C
 import HSH.ShellEquivs
+
 import Text.Parsec (runParser)
+
+import Language.Preprocessor.Cpphs
 
 import FPromela.Parser as FPromela
 import FPromela.Pretty as FPPretty
@@ -86,7 +89,9 @@ runPromela file alphas opml otvl = do
   when (length tvl_files <= 0) $ die ("Cannot find TVL file(s): " ++ tvl_file)
   let promela_file_name = head promela_files
   let tvl_file_name = head tvl_files
-  promela_file_contents <- C.run $ ("cpp", ["-w", promela_file_name]) C.-|- ("sed", ["/^\\#/d"])
+  promela_file_pre_cpp <- readFile promela_file_name
+  promela_file_contents <- runCpphs defaultCpphsOptions { boolopts = defaultBoolOptions { locations = False, lang = False, stripEol = True, stripC89 = True } }
+                              promela_file_name promela_file_pre_cpp
   let promela_res = runParser FPromela.pSpec emptyParserState promela_file_name promela_file_contents
   -- This can probably be solved more elegantly using the Either monad
   case promela_res of
