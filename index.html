@@ -5,7 +5,7 @@
     <title>p3-tool by ahmadsalim</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
-    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
     <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
     <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
   </head>
@@ -24,14 +24,11 @@
 
 <p>A reconfigurator tool for fPromela with support for variability abstractions.</p>
 
-<blockquote>
-<p>Info: The tool now supports basic calculus (June 9th 2015)</p>
-</blockquote>
+<p>You can retrieve the tool from <a href="http://ahmadsalim.github.io/p3-tool">http://ahmadsalim.github.io/p3-tool</a>; to install the tool, download the repository, get the latest version of the <a href="https://www.haskell.org/platform/">Haskell Platform</a> and run <code>cabal install</code> in the directory containing the <code>p3-tool</code> cabal file. </p>
 
-<p>You can retrieve the tool from <a href="http://ahmadsalim.github.io/p3-tool">http://ahmadsalim.github.io/p3-tool</a>; to install the tool, download the repository, get the latest version of the <a href="https://www.haskell.org/platform/">Haskell Platform</a> and run <code>cabal install</code> in the directory containing the <code>p3-tool</code> cabal file.</p>
+<p>The Z3 theorem prover is a prerequisite for running the tool, and the tool assumes that the <code>z3</code> executable is available on the <code>PATH</code> in your environment. You can retrieve the Z3 binaries from <a href="https://github.com/Z3Prover/z3/releases">https://github.com/Z3Prover/z3/releases</a>.</p>
 
-<p>The tool has been tested on Mac OS X 10.10, but should work on any *nix platform.
-It <em>may</em> work on Windows with Cygwin or *nix-like environment, but this has not been tested.
+<p>The tool has been tested on Mac OS X 10.10 and Windows 7, but should otherwise also work on any *nix platform and newer Windows versions.
 Assuming that Haskell binaries are in your <code>PATH</code>, you can run the tool by writing <code>p3-fpromela --input [input_file]</code> where <code>[input_file]</code> is the path to your fPromela and corresponding TVL file without file extension.</p>
 
 <p>An accompanying suite of benchmarks is available from <a href="https://github.com/ahmadsalim/p3-benchmarks">https://github.com/ahmadsalim/p3-benchmarks</a>.</p>
@@ -47,4 +44,3 @@ Assuming that Haskell binaries are in your <code>PATH</code>, you can run the to
   
   </body>
 </html>
-
