@@ -9,7 +9,7 @@ import Control.Monad.Except
 import Control.Monad.Reader
 
 import Data.Map.Strict as Map
-import Data.Foldable (foldrM)
+import Data.Foldable (foldlM)
 import qualified Data.Set.Monad as Set
 
 import System.Console.CmdLib
@@ -106,7 +106,7 @@ runPromela file alphas opml otvl = do
           case cfgs of
              Left err -> putStrLn err
              Right cfg -> do
-               absout <- runExceptT $ foldrM (\alpha (spec, tvl_res, cfg) -> Trans.abstractSpec alpha spec tvl_res cfg) (promela_res, tvl_res, cfg) alphas
+               absout <- runExceptT $ foldlM (\(spec, tvl_res, cfg) alpha -> Trans.abstractSpec alpha spec tvl_res cfg) (promela_res, tvl_res, cfg) alphas
                case absout of
                  Left err -> putStrLn err
                  Right (spec, tvl_res, cfg) -> do

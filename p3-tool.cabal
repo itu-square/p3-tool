@@ -1,5 +1,5 @@
 Name: p3-tool
-Version: 1.0
+Version: 1.1
 Cabal-Version:  >= 1.8
 Author: Ahmad Salim Al-Sibahi
 Synopsis: Parser and Transformation tool for fPromela
