@@ -1,6 +1,8 @@
 p3-tool
 ===========
 
+![GPLv3 Licensed](README/gplv3.png)
+
 A reconfigurator tool for fPromela with support for variability abstractions.
 
 You can retrieve the tool from <http://modelsteam.github.io/p3-tool>; to install the tool, download the repository, get the latest version of the [Haskell Platform](https://www.haskell.org/platform/) and run `cabal install` in the directory containing the `p3-tool` cabal file. 
