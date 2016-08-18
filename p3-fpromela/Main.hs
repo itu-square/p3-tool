@@ -1,8 +1,8 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, DeriveDataTypeable, BangPatterns, ConstraintKinds, FlexibleContexts, TypeFamilies #-}
 module Main where
 
-import System.FilePath (splitExtension, (<.>), isValid)
-import System.Directory (makeAbsolute)
+import System.FilePath ((-<.>), (</>), isAbsolute, isValid)
+import System.Directory (makeAbsolute, getCurrentDirectory)
 
 import Control.Monad
 import Control.Monad.Except
@@ -13,8 +13,6 @@ import Data.Foldable (foldlM)
 import qualified Data.Set.Monad as Set
 
 import System.Console.CmdLib
-import qualified HSH.Command as C
-import HSH.ShellEquivs
 
 import Text.Parsec (runParser)
 
@@ -80,25 +78,19 @@ type ConcreteMonad = ReaderT (Set.Set Cfgs.Config, [String]) (ExceptT String IO)
 
 runPromela :: FilePath -> [Abs.Abstraction ConcreteMonad] -> String -> String -> IO ()
 runPromela file alphas opml otvl = do
-  let promela_file = file
-  let (fname, ext) = splitExtension file
-  let tvl_file = fname <.> "tvl"
-  promela_files <- glob promela_file
-  when (length promela_files <= 0) $ die ("Cannot find promela file(s): " ++ promela_file)
-  tvl_files <- glob tvl_file
-  when (length tvl_files <= 0) $ die ("Cannot find TVL file(s): " ++ tvl_file)
-  let promela_file_name = head promela_files
-  let tvl_file_name = head tvl_files
-  promela_file_pre_cpp <- readFile promela_file_name
+  currentDir <- getCurrentDirectory
+  let promela_file = if isAbsolute file then file else currentDir </> file
+  let tvl_file = promela_file -<.> "tvl"
+  promela_file_pre_cpp <- readFile promela_file
   promela_file_contents <- runCpphs defaultCpphsOptions { boolopts = defaultBoolOptions { locations = False, lang = False, stripEol = True, stripC89 = True } }
-                              promela_file_name promela_file_pre_cpp
-  let promela_res = runParser FPromela.pSpec emptyParserState promela_file_name promela_file_contents
+                              promela_file promela_file_pre_cpp
+  let promela_res = runParser FPromela.pSpec emptyParserState promela_file promela_file_contents
   -- This can probably be solved more elegantly using the Either monad
   case promela_res of
     Left err -> putStrLn . ("Error while parsing promela file(s): \n" ++) . show $ err
     Right promela_res -> do
-      tvl_file_contents <- readFile tvl_file_name
-      let tvl_res = runParser TVL.pModel () tvl_file_name tvl_file_contents
+      tvl_file_contents <- readFile tvl_file
+      let tvl_res = runParser TVL.pModel () tvl_file tvl_file_contents
       case tvl_res of
          Left err -> putStrLn . ("Error while parsing TVL file(s): \n" ++) . show $ err
          Right tvl_res -> do

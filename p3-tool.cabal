@@ -1,5 +1,5 @@
 Name: p3-tool
-Version: 1.2
+Version: 1.3
 Cabal-Version:  >= 1.8
 Author: Ahmad Salim Al-Sibahi
 Synopsis: Parser and Transformation tool for fPromela
@@ -21,7 +21,7 @@ Library
     Transformation.Configurations, Transformation.Formulae, Transformation.Abstraction, Transformation.Transformation
 
 Executable p3-fpromela
-  Build-Depends: p3-tool, base, containers, set-monad, mtl>=2.2, parsec, cmdlib, filepath, HSH, cpphs, directory>=1.2.2
+  Build-Depends: p3-tool, base, containers, set-monad, mtl>=2.2, parsec, cmdlib, filepath, cpphs, directory>=1.2.2
   Hs-Source-Dirs: p3-fpromela
   Main-Is: Main.hs
   if flag(debug)
@@ -29,7 +29,7 @@ Executable p3-fpromela
     CPP-Options: -DDEBUG
 
 Executable p3-spin
-  Build-Depends: p3-tool, base, containers, set-monad, mtl>=2.2, parsec, process, cmdlib, HSH, filepath, temporary
+  Build-Depends: p3-tool, base, containers, set-monad, mtl>=2.2, parsec, process, cmdlib, filepath, temporary, cpphs, directory>=1.2.2
   Hs-Source-Dirs: p3-spin
   Main-Is: Main.hs
   if flag(debug)
