@@ -10,7 +10,7 @@ You can retrieve the tool from <http://modelsteam.github.io/p3-tool>; to install
 The Z3 theorem prover is a prerequisite for running the tool, and the tool assumes that the `z3` executable is available on the `PATH` in your environment. You can retrieve the Z3 binaries from <https://github.com/Z3Prover/z3/releases>.
 
 The tool has been tested on Mac OS X 10.10 and Windows 7, but should otherwise also work on any *nix platform and newer Windows versions.
-Assuming that Haskell binaries are in your `PATH`, you can run the tool by writing `p3-fpromela --input [input_file]` where `[input_file]` is the path to your fPromela and corresponding TVL file without file extension.
+Assuming that Haskell binaries are in your `PATH`, you can run the tool by writing `p3-fpromela [input_file]` where `[input_file]` is the path to your fPromela file; not that the tool expects a TVL file with the same name as the fPromela file in the directory.
 
 
 An accompanying suite of benchmarks is available from <https://github.com/modelsteam/p3-benchmarks>.
