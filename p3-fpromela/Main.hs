@@ -118,8 +118,8 @@ runPromela file alphas opml otvl = do
                         writeFile otvl (show . TVLPretty.prettyModel $ tvl_res)
 
 translateAbs :: (Abs.AbstractionMonad m) => Abs -> Abs.Abstraction m
-translateAbs Join = Abs.joinAbs
-translateAbs (Ignore fs) = Abs.ignoreAbs $ Set.fromList fs
+translateAbs (Join neg) = Abs.joinAbs neg
+translateAbs (Ignore neg fs) = Abs.ignoreAbs neg $ Set.fromList fs
 translateAbs (Project lits) = Abs.projectAbs $ Set.fromList lits
 
 main :: IO ()

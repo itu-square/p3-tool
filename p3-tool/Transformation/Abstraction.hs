@@ -43,24 +43,24 @@ k |= phi = do
           val <- SBV.forall f
           return $ Map.insert f val m
 
-joinAbs :: AbstractionMonad m => Abstraction m
-joinAbs = (joinFeatures, [], joinFormula)
+joinAbs :: AbstractionMonad m => Bool -> Abstraction m
+joinAbs neg = (joinFeatures, [], joinFormula)
     where joinFeatures = return []
           joinFormula phi = do
             (cfgs, _) <- ask
             b <- anyM (|= phi) (Set.toList cfgs)
-            return $ Frm.fromBool b
+            return $ if neg then Frm.FFalse else Frm.fromBool b
 
-ignoreAbs :: AbstractionMonad m => Set.Set String -> Abstraction m
-ignoreAbs ffs = (ignoreFeatures, [], ignoreFormula)
+ignoreAbs :: AbstractionMonad m => Bool -> Set.Set String -> Abstraction m
+ignoreAbs neg ffs = (ignoreFeatures, [], ignoreFormula)
     where ignoreFeatures = do
             (_, features) <- ask
             return $ features List.\\ Set.toList ffs
           ignoreFormula phi = do
             let phi' = Frm.nnf phi
             return $ transform ignoreFormula' phi'
-          ignoreFormula' ((Frm.:!:) (Frm.FVar f)) | f `Set.member` ffs = Frm.FTrue
-          ignoreFormula' (Frm.FVar f) | f `Set.member` ffs = Frm.FTrue
+          ignoreFormula' ((Frm.:!:) (Frm.FVar f)) | f `Set.member` ffs = Frm.fromBool neg
+          ignoreFormula' (Frm.FVar f) | f `Set.member` ffs = Frm.fromBool neg
           ignoreFormula' phi = phi
 
 projectAbs :: AbstractionMonad m => Set.Set Lit -> Abstraction m

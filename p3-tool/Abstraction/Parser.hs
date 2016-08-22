@@ -36,8 +36,10 @@ pAbstraction :: Parser st [Abs]
 pAbstraction = whiteSpace *> sepBy1 pAbs semi <* eof
 
 pAbs :: Parser st Abs
-pAbs =   reserved "join" *> pure Join
-    <|>  reserved "ignore" *> (Ignore <$> sepBy1 identifier comma)
+pAbs =   reserved "join" *> pure (Join False)
+    <|>  reserved "cojoin" *> pure (Join True)
+    <|>  reserved "ignore" *> (Ignore False <$> sepBy1 identifier comma)
+    <|>  reserved "coignore" *> (Ignore True <$> sepBy1 identifier comma)
     <|>  reserved "project" *> (Project <$> sepBy1 pLit comma)
 
 pLit :: Parser st Lit
