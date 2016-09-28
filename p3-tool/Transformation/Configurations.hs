@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Transformation.Configurations (Config(..), generateConfigs, removeFeature, excludeLitCfgs) where
+module Transformation.Configurations (Config(..), generateConfigs, removeFeature, excludeLitCfgs, fromConfig) where
 
 import qualified TVL.Ast as T
 import qualified TVL.Pretty as TVLPretty
@@ -14,8 +14,18 @@ import Data.List
 
 import Control.Monad.Except
 
+import qualified Transformation.Formulae as Frm
+
+
 data Config = Config { config_included :: Set.Set String, config_excluded :: Set.Set String }
   deriving (Eq, Show, Ord)
+
+fromConfig :: Config -> Frm.Formula
+fromConfig (Config incl excl) =
+  let inclvars = Set.mapMonotonic Frm.FVar incl
+      exclvars = Set.mapMonotonic ((Frm.:!:) . Frm.FVar) excl
+      allvars  = Set.union inclvars exclvars
+  in Set.foldr (Frm.:&:) Frm.FTrue allvars
 
 generateConfigs :: (Monad m, MonadError String m) => T.Model -> m (Set.Set Config)
 generateConfigs [T.DFeature f] = do

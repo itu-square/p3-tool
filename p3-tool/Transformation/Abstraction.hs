@@ -28,7 +28,7 @@ infix 5 |=
 (|=) :: AbstractionMonad m => Cnfg.Config -> Frm.Formula -> m Bool
 k |= phi = do
     (_, features) <- ask
-    let completeFrm = Frm.fromConfig k Frm.:=>: phi
+    let completeFrm = Cnfg.fromConfig k Frm.:=>: phi
     let pred = do fs <- foldrM featureToPred Map.empty features
                   v <- runExceptT (Frm.interpretAsSBool fs completeFrm)
                   case v of

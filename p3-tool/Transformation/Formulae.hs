@@ -14,8 +14,6 @@ import FPromela.Ast as FP
 import TVL.Ast as T
 import Abstraction.Ast(Lit(..))
 
-import Transformation.Configurations as Cnfgs
-
 data Formula = FVar String
              | FFalse
              | FTrue
@@ -36,13 +34,6 @@ nnf = rewrite nnf'
 fromBool :: Bool -> Formula
 fromBool True = FTrue
 fromBool False = FFalse
-
-fromConfig :: Cnfgs.Config -> Formula
-fromConfig (Cnfgs.Config incl excl) =
-  let inclvars = Set.mapMonotonic FVar incl
-      exclvars = Set.mapMonotonic ((:!:) . FVar) excl
-      allvars  = Set.union inclvars exclvars
-  in Set.foldr (:&:) FTrue allvars
 
 fromFPromelaExpr :: (Monad m, MonadError String m) => String -> FP.Expr -> m Formula
 fromFPromelaExpr prefix (FP.ELogic e1 "||" e2) = do
