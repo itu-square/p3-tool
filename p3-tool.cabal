@@ -12,7 +12,7 @@ Flag Debug
   Default:     False
 
 Library
- Build-Depends: base, parsec, pretty, containers, mtl>=2.2, set-monad, monad-loops, uniplate, language-c, sbv
+ Build-Depends: base, containers, cpphs >= 1.20.1, directory >= 1.2.6.2, filepath >= 1.4.1.0, language-c, monad-loops, mtl>=2.2, optparse-applicative >= 0.13.0.0, parsec, pretty, process >= 1.4.2.0, sbv, set-monad, temporary >= 1.2.0.4, uniplate
  Hs-Source-Dirs: p3-tool
  Exposed-Modules:
     FPromela.Ast, FPromela.Lexer, FPromela.Parser, FPromela.Pretty,
@@ -21,7 +21,7 @@ Library
     Transformation.Configurations, Transformation.Formulae, Transformation.Abstraction, Transformation.Transformation
 
 Executable p3-fpromela
-  Build-Depends: p3-tool, base, containers, set-monad, mtl>=2.2, parsec, cmdlib, filepath, cpphs, directory>=1.2.2
+  Build-Depends: base, containers, cpphs >= 1.20.1, directory >= 1.2.6.2, directory>=1.2.2, filepath, filepath >= 1.4.1.0, mtl>=2.2, optparse-applicative, p3-tool, parsec, set-monad
   Hs-Source-Dirs: p3-fpromela
   Main-Is: Main.hs
   if flag(debug)
@@ -29,7 +29,7 @@ Executable p3-fpromela
     CPP-Options: -DDEBUG
 
 Executable p3-spin
-  Build-Depends: p3-tool, base, containers, set-monad, mtl>=2.2, parsec, process, cmdlib, filepath, temporary, cpphs, directory>=1.2.2
+  Build-Depends: base, containers, cpphs >= 1.20.1, directory >= 1.2.6.2, directory>=1.2.2, filepath >= 1.4.1.0, mtl>=2.2, optparse-applicative, p3-tool, parsec, process >= 1.4.2.0, set-monad, temporary >= 1.2.0.4
   Hs-Source-Dirs: p3-spin
   Main-Is: Main.hs
   if flag(debug)

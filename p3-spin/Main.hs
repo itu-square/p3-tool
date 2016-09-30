@@ -1,19 +1,20 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, DeriveDataTypeable, BangPatterns #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, BangPatterns #-}
 module Main where
 
 import Control.Monad hiding (forM_)
 import Control.Monad.Except hiding (forM_)
 import Control.Monad.State hiding (forM_)
 
+import Data.Semigroup
 import Data.Foldable (forM_)
-import Data.Map.Strict as Map
+import Data.Map (Map)
+import qualified Data.Map.Strict as Map
 import qualified Data.Set.Monad as Set
 import Data.Ratio
 import Data.IORef
 
 import Numeric (readFloat, readSigned, fromRat, showFFloat)
 
-import System.Console.CmdLib
 import Text.Parsec (runParser)
 
 import FPromela.Parser as FPromela
@@ -22,6 +23,7 @@ import FPromela.Pretty as FPPretty
 import qualified TVL.Parser as TVL
 import qualified TVL.Pretty as TVLPretty
 
+import qualified Transformation.Formulae as Frm
 import qualified Transformation.Configurations as Cfgs
 import qualified Transformation.Transformation as Trans
 import qualified Transformation.Abstraction as Abs
@@ -35,19 +37,16 @@ import System.Directory
 
 import System.Process
 
-data Main = Main { input :: FilePath }
-  deriving (Typeable, Data, Eq)
+import qualified Options.Applicative as Opt
 
-instance Attributes Main where
-  attributes _ = group "Options" [
-    input %> [ Help "Input fPromela file to parse and pretty-print",
-               ArgHelp "FILENAME",
-               Required True ]
-   ]
+data ToolOpts = ToolOpts { input :: FilePath }
+  deriving Eq
 
-instance RecordCommand Main where
-  mode_summary _ = "fPromela file parser and pretty printer"
-  run' cmd _ = return ()
+toolOpts :: Opt.Parser ToolOpts
+toolOpts = ToolOpts <$> Opt.argument Opt.str
+                         (  Opt.metavar "INPUT"
+                         <> Opt.help "Input fPromela file to verify with SPIN"
+                         )
 
 runWithStdErr :: FilePath -> [String] -> IO (String, String)
 runWithStdErr e args = do
@@ -79,17 +78,20 @@ runSpin file = do
       case tvl_res of
          Left err -> putStrLn . ("Error while parsing TVL file(s): \n" ++) . show $ err
          Right tvl_res -> do
-          cfgs <- runExceptT $ Cfgs.generateConfigs tvl_res
-          case cfgs of
+          cfgsfrmE <- runExceptT $ Cfgs.generateConfigs tvl_res
+          case cfgsfrmE of
              Left err -> putStrLn err
-             Right cfgs -> do
-               let indcfgs = fmap Set.singleton cfgs
+             Right cfgsfrm -> do
+               indcfgs <- Frm.allSatisfiable cfgsfrm
                totalTime <- newIORef (0 :: Rational)
                forM_ indcfgs $ \cfg -> do
-                 spec <- runExceptT $ Trans.abstractSpec (Abs.joinAbs False) promela_res tvl_res cfg
+                 let cfgfrm = Frm.fAll $ map (\(var, val) ->
+                                                if val then Frm.FVar var
+                                                else (Frm.:!:) (Frm.FVar var)) (Map.toList cfg)
+                 spec <- runExceptT $ Trans.abstractSpec (Abs.joinAbs False) promela_res tvl_res cfgfrm
                  case spec of
                    Left err -> putStrLn err
-                   Right (spec, tvl_res, cfg) -> do
+                   Right (spec, tvl_res, cfg) ->
                      withSystemTempDirectory "p3-spin-" $ \path -> do
                        setCurrentDirectory path
                        let specfile = "out.pml"
@@ -103,10 +105,14 @@ runSpin file = do
                        let pantime = fst . head $ readSigned readFloat ut :: Rational
                        modifyIORef' totalTime (spintime + pantime +)
                totalTimeVal <- readIORef totalTime
-               putStrLn $ showFFloat (Just 2) (fromRat $ totalTimeVal) ""
+               putStrLn $ showFFloat (Just 2) (fromRat totalTimeVal) ""
 
 main :: IO ()
 main = do
-  args <- getArgs
-  opts <- executeR (Main { input = "" }) args
-  runSpin . input $ opts
+    opts <- Opt.execParser optParser
+    runSpin . input $ opts
+  where optParser =  Opt.info (Opt.helper <*> toolOpts)
+          (  Opt.fullDesc
+          <> Opt.progDesc "Verify INPUT model with Spin"
+          <> Opt.header "p3-spin - a tool for bruteforce verification of fPromela models with SPIN")
+

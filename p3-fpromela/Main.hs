@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, DeriveDataTypeable, BangPatterns, ConstraintKinds, FlexibleContexts, TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, BangPatterns, ConstraintKinds, FlexibleContexts, TypeFamilies #-}
 module Main where
 
 import System.FilePath ((-<.>), (</>), isAbsolute, isValid)
@@ -8,11 +8,11 @@ import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
 
+import Data.Maybe (fromMaybe)
 import Data.Map.Strict as Map
 import Data.Foldable (foldlM)
 import qualified Data.Set.Monad as Set
-
-import System.Console.CmdLib
+import Data.Semigroup
 
 import Text.Parsec (runParser)
 
@@ -28,55 +28,50 @@ import qualified TVL.Parser as TVL
 import qualified TVL.Pretty as TVLPretty
 
 import qualified Transformation.Configurations as Cfgs
+import qualified Transformation.Formulae as Frm
 import qualified Transformation.Transformation as Trans
 import qualified Transformation.Abstraction as Abs
 
-data Main = Main { input :: FilePath, abstraction :: String, output_tvl :: String, output_pml :: String }
-  deriving (Typeable, Data, Eq)
+import qualified Options.Applicative as Opt
 
-instance Attributes Main where
-  attributes _ = group "Options" [
-    input %> [ Help "Input fPromela file to parse and pretty-print (expects .tvl file with the same name)",
-               ArgHelp "INPUT",
-               Required True,
-               Positional 0],
-    abstraction %> [ Help "Abstraction to run, e.g. 'ignore A; project B, !C; join'.\n\
+data ToolOpts = ToolOpts { input :: FilePath, abstraction :: Maybe String, output_tvl :: Maybe String, output_pml :: Maybe String }
+  deriving Eq
+
+toolOpts :: Opt.Parser ToolOpts
+toolOpts = ToolOpts
+  <$> Opt.argument Opt.str
+       (  Opt.metavar "INPUT"
+       <> Opt.help "Input fPromela file to abstract (expects .tvl file with the same name)"
+       )
+  <*> Opt.optional (Opt.strOption
+      (
+         Opt.long "abs"
+      <> Opt.short 'a'
+      <> Opt.metavar "ABSTRACTION"
+      <> Opt.help "Abstraction to run, e.g. 'ignore A; project B, !C; join'.\n\
       \  'ignore' takes a comma separated list of feature names which should be ignored\n\
       \  'project' takes a comma separated list of feature literals (A, !A) which it should project\n\
       \ \t [projection on disjunction is not currently supported]\n\
       \  ';' is used to compose multiple abstraction\n\
       \  'join' flattens an fPromela file to Promela by converting all legal 'gd'-statements to 'if'-statements\n\
-      \ \t [only makes sense to use as the last abstraction in a composition]",
-    ArgHelp "ABSTRACTION",
-    Long ["abs"],
-    Short ['a'],
-    Required False,
-    Default "join"],
-    output_tvl %> [
-      Help "Filename to write output TVL model",
-      ArgHelp "TVL_OUTPUT",
-      Required False,
-      Default "",
-      Long ["otvl"],
-      Short ['t']
-    ],
-    output_pml %> [
-      Help "Filename to write output fPromela program",
-      ArgHelp "PML_OUTPUT",
-      Required False,
-      Default "",
-      Long ["opml"],
-      Short ['o']
-    ]
-   ]
+      \ \t [only makes sense to use as the last abstraction in a composition]"
+      ))
+  <*> Opt.optional (Opt.strOption
+      (  Opt.long "otvl"
+      <> Opt.short 't'
+      <> Opt.metavar "TVL_OUTPUT"
+      <> Opt.help "Filename to write output TVL model"
+      ))
+  <*> Opt.optional (Opt.strOption
+      (  Opt.long "opml"
+      <> Opt.short 'o'
+      <> Opt.metavar "PML_OUTPUT"
+      <> Opt.help "Filename to write output fPromela program"
+      ))
 
-instance RecordCommand Main where
-  mode_summary _ = "fPromela file parser and pretty printer"
-  run' cmd _ = return ()
+type ConcreteMonad = ReaderT (Frm.Formula, [String]) (ExceptT String IO)
 
-type ConcreteMonad = ReaderT (Set.Set Cfgs.Config, [String]) (ExceptT String IO)
-
-runPromela :: FilePath -> [Abs.Abstraction ConcreteMonad] -> String -> String -> IO ()
+runPromela :: FilePath -> [Abs.Abstraction ConcreteMonad] -> Maybe String -> Maybe String -> IO ()
 runPromela file alphas opml otvl = do
   currentDir <- getCurrentDirectory
   let promela_file = if isAbsolute file then file else currentDir </> file
@@ -102,20 +97,18 @@ runPromela file alphas opml otvl = do
                case absout of
                  Left err -> putStrLn err
                  Right (spec, tvl_res, cfg) -> do
-                    if opml == "" || not (isValid opml)
-                      then
-                        putStrLn . show . FPPretty.prettySpec $ spec
-                      else do
-                        opml <- makeAbsolute opml
+                    case opml of
+                      Just opmlPath | isValid opmlPath -> do
+                        opml <- makeAbsolute opmlPath
                         putStrLn ("Wrote PML file to " ++ opml)
                         writeFile opml (show . FPPretty.prettySpec $ spec)
-                    if otvl == "" || not (isValid otvl)
-                      then
-                        return ()
-                      else do
-                        otvl <- makeAbsolute otvl
+                      _ -> print . FPPretty.prettySpec $ spec
+                    case otvl of
+                      Just otvlPath | isValid otvlPath -> do
+                        otvl <- makeAbsolute otvlPath
                         putStrLn ("Wrote TVL file to " ++ otvl)
                         writeFile otvl (show . TVLPretty.prettyModel $ tvl_res)
+                      _ -> return ()
 
 translateAbs :: (Abs.AbstractionMonad m) => Abs -> Abs.Abstraction m
 translateAbs (Join neg) = Abs.joinAbs neg
@@ -124,9 +117,12 @@ translateAbs (Project lits) = Abs.projectAbs $ Set.fromList lits
 
 main :: IO ()
 main = do
-  args <- getArgs
-  opts <- executeR (Main { input = "", abstraction = "join", output_pml = "", output_tvl = "" }) args
-  let abs_res = runParser AbsParser.pAbstraction () "abstraction" $ abstraction opts
-  case abs_res of
-    Right alphas -> runPromela (input opts) (Prelude.map translateAbs alphas) (output_pml opts) (output_tvl opts)
-    Left err -> putStrLn . ("Error while parsing abstraction: \n " ++) . show $ err
+    opts <- Opt.execParser optParser
+    let abs_res = runParser AbsParser.pAbstraction () "abstraction" $ fromMaybe "join" (abstraction opts)
+    case abs_res of
+      Right alphas -> runPromela (input opts) (Prelude.map translateAbs alphas) (output_pml opts) (output_tvl opts)
+      Left err -> putStrLn . ("Error while parsing abstraction: \n " ++) . show $ err
+  where optParser = Opt.info (Opt.helper <*> toolOpts)
+            (  Opt.fullDesc
+            <> Opt.progDesc "Apply ABSTRACTION to INPUT producing TVL_OUTPUT and PML_OUTPUT"
+            <> Opt.header "p3-fpromela - a tool for applying variability abstractions to fPromela models")

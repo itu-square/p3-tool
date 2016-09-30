@@ -4,10 +4,14 @@ module Transformation.Formulae where
 import Data.Typeable
 import Data.Data
 import Data.SBV
+import Data.Maybe
+import Data.Foldable
+
 import qualified Data.Map.Strict as Map
 import qualified Data.Set.Monad as Set
 import Data.Generics.Uniplate.Data
 
+import Control.Monad
 import Control.Monad.Except
 
 import FPromela.Ast as FP
@@ -23,13 +27,50 @@ data Formula = FVar String
              | Formula :=>: Formula
      deriving (Eq, Show, Ord, Data, Typeable)
 
+
+featureToPred :: SymWord a => String -> Map.Map String (SBV a) -> Symbolic (Map.Map String (SBV a))
+featureToPred f m = do
+      val <- exists f
+      return $ Map.insert f val m
+
+allSatisfiable :: (Monad m, MonadIO m) => Formula -> m [Map.Map String Bool]
+allSatisfiable frm = do
+  let features = [x | FVar x <- universe frm]
+  let pred = do fs <- foldrM featureToPred Map.empty features
+                Right v <- runExceptT (interpretAsSBool fs frm)
+                return v
+  satRes <- liftIO $ allSat pred
+  return . map (Map.map cwToBool) $ getModelDictionaries satRes
+
 nnf :: Formula -> Formula
 nnf = rewrite nnf'
   where nnf' ((:!:) ((:!:) phi))   = Just phi
-        nnf' ((:!:) (phi :&: psi)) = Just (((:!:) phi) :|: ((:!:) psi))
-        nnf' ((:!:) (phi :|: psi)) = Just (((:!:) phi) :&: ((:!:) psi))
-        nnf' (phi :=>: psi)        = Just (((:!:) phi) :|: psi)
+        nnf' ((:!:) (phi :&: psi)) = Just ((:!:) phi :|: (:!:) psi)
+        nnf' ((:!:) (phi :|: psi)) = Just ((:!:) phi :&: (:!:) psi)
+        nnf' (phi :=>: psi)        = Just ((:!:) phi :|: psi)
         nnf' _                     = Nothing
+
+fAll :: [Formula] -> Formula
+fAll []  = FTrue
+fAll [f] = f
+fAll (f:fs) =
+  case (f, fAll fs) of
+    (_, FTrue)  -> f
+    (_, FFalse) -> FFalse
+    (FTrue, f') -> f'
+    (FFalse, _) -> FFalse
+    (_, f')     -> f :&: f'
+
+fAny :: [Formula] -> Formula
+fAny []  = FFalse
+fAny [f] = f
+fAny (f:fs) =
+  case (f, fAny fs) of
+    (_, FTrue)   -> FTrue
+    (_, FFalse)  -> f
+    (FTrue, _)   -> FTrue
+    (FFalse, f') -> f'
+    (_, f')      -> f :|: f'
 
 fromBool :: Bool -> Formula
 fromBool True = FTrue
@@ -149,12 +190,10 @@ interpretAsTVLConstraint = CtExpr . interpretAsTVLExpr
         interpretAsTVLExpr ((:!:) phi) = T.UnOp "!" (interpretAsTVLExpr phi)
         interpretAsTVLExpr (phi1 :&: phi2)  = T.BinOp "&&" (interpretAsTVLExpr phi1) (interpretAsTVLExpr phi2)
         interpretAsTVLExpr (phi1 :|: phi2)  = T.BinOp "||" (interpretAsTVLExpr phi1) (interpretAsTVLExpr phi2)
-        interpretAsTVLExpr (phi1 :=>: phi2) = interpretAsTVLExpr (((:!:) phi1) :|: phi2)
+        interpretAsTVLExpr (phi1 :=>: phi2) = interpretAsTVLExpr ((:!:) phi1 :|: phi2)
 
 graft :: Map.Map String Formula -> Formula -> Formula
 graft env (FVar name) =
-  case Map.lookup name env of
-    Nothing -> FVar name
-    Just val -> val
+  fromMaybe (FVar name) $ Map.lookup name env
 graft env phi =
   descend (transform $ graft env) phi

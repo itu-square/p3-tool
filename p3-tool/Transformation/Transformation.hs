@@ -26,26 +26,24 @@ import Control.Monad.State
 type MonadIOExcept m = (Functor m, Applicative m, Monad m, MonadError String m, MonadIO m)
 type Features = (String, [String])
 
-abstractSpec :: (MonadIOExcept n, AbstractionMonad m, m ~ ReaderT (Set.Set Config, [String]) n) =>
-                    Abstraction m -> FP.Spec -> TVL.Model -> Set.Set Config -> n (FP.Spec, TVL.Model, Set.Set Config)
+abstractSpec :: (MonadIOExcept n, AbstractionMonad m, m ~ ReaderT (Formula, [String]) n) =>
+                    Abstraction m -> FP.Spec -> TVL.Model -> Formula -> n (FP.Spec, TVL.Model, Formula)
 abstractSpec alpha spec tvl cfgs = do
-  let allf = Set.foldr (\e ss -> config_included e `Set.union` config_excluded e `Set.union` ss) Set.empty cfgs
   (fname, features) <- getFeatures spec
-  let difff = allf `Set.difference` Set.fromList features
-  let cfgs' = Set.foldr (\f cfgs' ->  Set.map (removeFeature f) cfgs') cfgs difff
+  let allf = [x | FVar x <- universe cfgs]
   let (af, lits, aphi) = alpha
-  features' <- runReaderT af (cfgs', features)
+  features' <- runReaderT af (cfgs, allf)
   spec' <- setFeatures (fname, features') spec
-  spec'' <- runReaderT (transformBiM (rewriteFeatureBranches aphi (fname, features)) spec') (cfgs', features)
+  spec'' <- runReaderT (transformBiM (rewriteFeatureBranches aphi (fname, allf)) spec') (cfgs, allf)
   spec''' <- removeFeatureDeclsIfEmpty spec''
-  let cfgs'' = foldr (\lit cfgs'' -> excludeLitCfgs lit cfgs'') cfgs' lits
+  let cfgs' = foldr excludeLit cfgs lits
   tvl' <-
     if lits /= []
       then do
         prod <- fromLits lits
         TUtil.addConstraint (interpretAsTVLConstraint prod) tvl
     else return tvl
-  pure (spec''', tvl', cfgs'')
+  pure (spec''', tvl', cfgs')
 
 setFeatures :: MonadIOExcept m => Features -> FP.Spec -> m FP.Spec
 setFeatures (fname, fs) spec = transformBiM updateFeatureDecl spec
